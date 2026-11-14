@@ -1,0 +1,157 @@
+# AADI Rifle Shooting — Academy Management
+
+Initial web MVP: admin sign-in, shooter registration, one-time QR card issuance, camera QR scanning, check-in/check-out and optional rifle allocation.
+
+## 1. Requirements
+- Node.js 20 LTS or newer
+- A Supabase project
+- Browser camera access (localhost or HTTPS)
+
+## 2. Supabase setup
+1. Open your Supabase project → SQL Editor.
+2. Run `supabase/migrations/001_initial_schema.sql`.
+3. In Authentication → Users, create the academy admin user.
+4. Copy that user's UUID and run this SQL (replace values):
+
+```sql
+insert into public.profiles (id, full_name, role)
+values ('AUTH_USER_UUID', 'Academy Admin', 'super_admin');
+```
+
+5. Add starter rifles if desired:
+
+```sql
+insert into public.rifles (rifle_code, name) values
+('RIFLE-01', 'Air Rifle 01'),
+('RIFLE-02', 'Air Rifle 02');
+```
+
+The SQL uses `pgcrypto` for hashing QR tokens. Only the SHA-256 hash is stored; the raw QR token is shown once when issued. If a card is lost, issue a new QR to revoke the previous token.
+
+## 2a. One-command database setup (optional, replaces manual SQL steps)
+```powershell
+cd web
+Copy-Item .env.db.example .env.db     # then edit .env.db: paste DATABASE_URL (Session pooler) and ADMIN_EMAIL
+npm install
+npm run db:setup
+```
+It applies every file in `supabase/migrations` in order (already-applied files are skipped), reloads the API schema cache, and makes `ADMIN_EMAIL` a super_admin. Create that user first in Authentication -> Users.
+
+## 2b. Shooter sign-up and approval (run migration 002)
+Run `supabase/migrations/002_shooter_signup_approval.sql` in the SQL Editor after migration 001.
+
+How it works:
+1. A shooter opens the app → **New shooter** tab → creates an account (email + password).
+2. After signing in they fill in their details. Their status is **Pending approval**; they cannot check in yet.
+3. The admin signs in, opens **Approvals**, and clicks **Approve** (or Reject). Approval activates the shooter and immediately shows their QR card to save or print.
+4. The shooter signs in again and sees **You're an AADI member** with their membership ID.
+
+Supabase tip: for easy local testing, turn off Authentication → Providers → Email → "Confirm email". Leave it on in production.
+
+## 3. Run the web application
+
+```powershell
+cd web
+Copy-Item .env.example .env
+```
+
+Edit `web/.env` and add your Supabase URL and publishable/anon key:
+
+```env
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY
+```
+
+Then:
+
+```powershell
+npm install
+npm run dev
+```
+
+Open the localhost URL printed by Vite. Sign in with the admin user created in Supabase.
+
+## 4. Important security and operating notes
+- Never use the Supabase `service_role` key in the browser or commit `.env` to Git.
+- The database policies restrict the initial admin workflows to authenticated academy admin/reception roles. The first admin profile must be provisioned manually as above.
+- Use HTTPS in production for camera scanning.
+- QR codes contain random opaque tokens, not personal details. The database stores only token hashes.
+- A scan is not a safety authorization. Follow the academy's normal firearm/range supervision and equipment issue procedures.
+- This is an initial MVP scaffold, not yet production-ready. Add profile/role administration, batch and coach assignment, audit history, backups, testing, rate limits and deployment configuration before live academy use.
+
+## 5. Current MVP scope
+- Dashboard statistics and recent attendance
+- Shooter registration and directory
+- Generate/download/print a QR card
+- Reissue QR (revokes prior QR)
+- Camera scanner for check-in and check-out
+- Optional rifle inventory selection and allocation/return
+
+Next phases: batches/coaches, notifications page, mobile app, and automated tests.
+
+## 6. Shooter portal, scores and offline fees (migrations 004 + 005)
+Run `npm run db:setup` again (or paste `004_scores_and_portal_access.sql` and `005_fees_and_payments.sql` into the SQL Editor).
+
+**Shooter portal** (approved, active members see this after signing in):
+- Overview: "Where to improve" tips and "What's going well", plus a banner if a fee is overdue or due soon
+- Attendance: days attended, this month, last 30 days, and each session's in/out time
+- Scores: average, best, trend, progress chart and every recorded score
+- Fees: what is due, what is paid (date and method)
+- My QR: the membership QR card
+
+**Admin**
+- **Shooting scores**: click *Record score*. Entering shot-by-shot values unlocks deeper tips (slow starts, fading late, stray shots)
+- **Fees & payments**: *Add fee* for one shooter or everyone; summary cards for pending / overdue / collected; *Remind* sends a reminder; *Mark paid* records cash/UPI and emails the shooter a "payment received" receipt; *Resend receipt* and *Undo* are there too. The *Email activity* table shows whether each email was sent or failed.
+
+**Manual check-in** (Attendance page → *Manual check-in / check-out*): if the camera or QR isn't available, search by name, AADI number or phone and click *Check in* / *Check out*. Needs migration `006`. Manual entries are marked in the attendance notes.
+
+Payments are collected **offline** at the academy. The app only records them and sends the emails.
+
+### Turn on the emails (one-time)
+1. Create a free account at resend.com, verify your sending domain, and create an API key.
+2. Deploy the function and set its secrets (needs the Supabase CLI):
+```powershell
+supabase functions deploy fee-mail --no-verify-jwt
+supabase secrets set RESEND_API_KEY=re_xxx MAIL_FROM="AADI Rifle Shooting <fees@yourdomain.com>" CRON_SECRET=any-long-random-string
+```
+3. Optional but recommended: open `supabase/cron-fee-reminders.sql`, fill in your project ref, anon key and the same CRON_SECRET, then run it in the SQL Editor. This emails every shooter with an unpaid fee starting 3 days before the due date, then every 3 days until it is marked paid (09:00 India time daily).
+
+Reminders and receipts go to the email stored on the shooter's record. Shooters who sign up themselves get their login email automatically; for shooters you register by hand, fill in the Email field.
+
+
+## 7. Public website and refreshed dashboards
+The latest interface update adds a public-facing academy website at `/` with the supplied AADI opening poster, training program information, Yelahanka location details, contact link, and clear **Sign in** / **Join the academy** actions. Visitors can view the site without creating an account. The poster is stored at `web/public/aadi-academy-poster.jpg`.
+
+- `/login` is the member and staff sign-in page.
+- `/signup` is the shooter account creation page. New shooter registrations still follow the existing approval workflow.
+- Admin users are routed to the academy management workspace; approved shooters are routed to their member portal.
+- The attendance desk has clearer check-in and check-out actions, a sound on/off control, a short success tone after successful QR or manual attendance actions, and optional browser notifications when permission is granted.
+- The admin Notifications page combines recent pending shooter approvals, attendance updates and pending fee records. It refreshes when the page receives Supabase Realtime table events (if Realtime is enabled for those tables) and also has a manual Refresh control.
+
+Browser notifications and sound require the staff member to open the attendance page and enable sound/notification permission. This is not a guaranteed push-notification service when the browser is closed. For production push notifications, configure a server-side notification provider and delivery rules.
+
+## 8. Build and deploy
+From `web/`, install dependencies and run `npm run build` before deploying the generated `dist/` folder to a static host such as Vercel or Netlify. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in the hosting provider's environment settings. Use HTTPS for camera scanning. Configure the host to rewrite unknown paths to `index.html` so `/login` and `/signup` work on refresh.
+
+## Membership exit / Past Shooters
+
+Apply `supabase/migrations/008_shooter_exit_requests.sql` after the existing migrations. It adds:
+
+- Shooter self-service leave request with a required reason.
+- Admin leave-request review with approve/reject and optional review note.
+- Approved shooters are moved to Past Shooters while attendance, scores and fee history remain available to the academy.
+- Admin-only Restore to active membership.
+- Admin-only permanent deletion for archived shooters.
+- Notifications for leave requests, approvals, rejections and restored memberships.
+
+The Shooter Notifications page now calculates the unread count independently from the visible notification list, so the tab badge and the page count stay consistent even when more than the visible page limit exists.
+
+## Rejected application resubmission (migration 010)
+
+Apply `supabase/migrations/010_rejected_shooter_resubmission.sql` after the existing migrations. It adds:
+
+- Rejected shooters can correct their details and resubmit the same application without creating a second account or membership record.
+- The shooter sees the rejection reason and an **Edit & resubmit application** form.
+- Resubmission changes the application back to **Pending** for admin review.
+- Admin receives a new `registration_resubmitted` notification for the corrected application.
+- The existing membership ID is retained.

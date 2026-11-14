@@ -1,0 +1,4 @@
+# The fee-mail function checks the caller itself (admin login token, or x-cron-secret for the daily job),
+# so the gateway must not reject the browser's CORS preflight request, which carries no token.
+[functions.fee-mail]
+verify_jwt = false
