@@ -526,21 +526,21 @@ html{-webkit-text-size-adjust:100%}
 .app-shell .exit-request-card{display:flex;flex-direction:column;gap:16px;padding:20px;border:1px solid var(--p-line);border-radius:16px;background:#fff;box-shadow:0 4px 14px rgba(16,40,78,.05)}
 .exit-card-top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
 .app-shell .exit-card-top .person-avatar{width:46px;height:46px;border-radius:14px;background:#fff1ef;color:#b0443b}
-.app-shell .exit-card-top .person-cell b{font-size:19px;font-weight:800;color:var(--p-ink)}
-.app-shell .exit-card-top .person-cell small{margin-top:5px;font-size:14.5px;line-height:1.4;word-break:break-word;color:var(--p-muted)}
-.exit-time{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:#f1f6fd;color:#36527a;font-size:14.5px;font-weight:700;white-space:nowrap}
+.app-shell .exit-card-top .person-cell b{font-size:17px;font-weight:800;color:var(--p-ink)}
+.app-shell .exit-card-top .person-cell small{margin-top:4px;font-size:13px;color:var(--p-muted)}
+.exit-time{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:#f1f6fd;color:#36527a;font-size:13px;font-weight:700;white-space:nowrap}
 .app-shell .exit-reason{margin:0;padding:14px 16px;border-left:4px solid var(--p-gold);border-radius:4px 12px 12px 4px;background:#fbfaf5}
-.app-shell .exit-reason small{font-size:13px;font-weight:800;letter-spacing:.1em;color:#8a7a4d}
-.app-shell .exit-reason p{margin:8px 0 0;font-size:18px;line-height:1.55;font-weight:700;color:var(--p-ink)}
+.app-shell .exit-reason small{font-size:12px;font-weight:800;letter-spacing:.1em;color:#8a7a4d}
+.app-shell .exit-reason p{margin:6px 0 0;font-size:15.5px;line-height:1.6;font-weight:600;color:var(--p-ink)}
 .app-shell .exit-review{gap:8px;padding-top:16px;border-top:1px solid var(--p-line)}
-.app-shell .exit-review label{font-size:15px;font-weight:800;color:var(--p-ink)}
+.app-shell .exit-review label{font-size:13.5px;font-weight:800;color:var(--p-ink)}
 .app-shell .exit-review label em{font-style:normal;font-weight:600;color:#7a8aa3}
 .exit-review-row{display:flex;align-items:center;gap:12px}
-.app-shell .exit-review input{flex:1;min-width:0;height:52px;padding:0 16px;border:1.5px solid #d6e0ee;border-radius:12px;background:#fff;color:var(--p-ink);font-size:16px;transition:border-color .18s,box-shadow .18s}
+.app-shell .exit-review input{flex:1;min-width:0;height:48px;padding:0 16px;border:1.5px solid #d6e0ee;border-radius:12px;background:#fff;color:var(--p-ink);font-size:15px;transition:border-color .18s,box-shadow .18s}
 .app-shell .exit-review input::placeholder{color:#8a98ae}
 .app-shell .exit-review input:focus{border-color:var(--p-gold-d);box-shadow:0 0 0 4px rgba(245,178,26,.2)}
 .app-shell .exit-actions{display:flex;gap:10px;flex:none}
-.app-shell .exit-actions .small-outline{min-height:52px;padding:0 20px;border-radius:12px;font-size:16px;font-weight:800;white-space:nowrap;gap:8px}
+.app-shell .exit-actions .small-outline{min-height:48px;padding:0 18px;border-radius:12px;font-size:14.5px;font-weight:800;white-space:nowrap;gap:8px}
 .app-shell .exit-actions .small-outline.ok{background:#157347;border-color:#157347;color:#fff}
 .app-shell .exit-actions .small-outline.ok:hover:not(:disabled){background:#0f5e3a;border-color:#0f5e3a}
 .app-shell .exit-actions .small-outline.no{background:#fff;border-color:#e6bdb8;color:#a63d34}
