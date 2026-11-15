@@ -1,0 +1,25 @@
+# Render Blueprint: deploys the AADI web app as a static site.
+# Put this file at the ROOT of your Git repo (next to package.json).
+services:
+  - type: web
+    name: aadi-rifle-academy
+    runtime: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    pullRequestPreviewsEnabled: false
+    envVars:
+      - key: VITE_SUPABASE_URL
+        sync: false        # you enter this in the Render dashboard
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false        # you enter this in the Render dashboard
+      - key: NODE_VERSION
+        value: 20
+    routes:
+      # Needed so /login, /signup, /approvals ... work on refresh (React Router)
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
