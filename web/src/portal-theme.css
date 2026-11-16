@@ -553,3 +553,33 @@ html{-webkit-text-size-adjust:100%}
   .app-shell .exit-actions .small-outline{width:100%;justify-content:center;padding:0 10px}
 }
 @media(max-width:420px){.app-shell .exit-actions{grid-template-columns:1fr}}
+
+/* ---- Recent sessions table (dashboard) ---- */
+.app-shell .badge.gray{background:#eef1f6;color:#5b6a82}
+.app-shell .badge.green{background:#e6f5ec;color:#1f7a44}
+.app-shell .badge .live-dot{width:8px;height:8px;border-radius:50%;background:#25a45c;margin-right:7px;animation:livePulse 1.8s ease-out infinite}
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(37,164,92,.55)}70%{box-shadow:0 0 0 7px rgba(37,164,92,0)}100%{box-shadow:0 0 0 0 rgba(37,164,92,0)}}
+.app-shell .session-table td b{font-weight:700;color:var(--p-ink)}
+.app-shell .session-table .dash{color:#a3afc2}
+.app-shell .session-table .live-text{color:#1f7a44;font-weight:700}
+@media(max-width:760px){
+  /* Table becomes a stack of cards on phones: no sideways scrolling */
+  .app-shell .session-table,.app-shell .session-table tbody,.app-shell .session-table tr,.app-shell .session-table td{display:block;width:100%}
+  .app-shell .session-table thead{display:none}
+  .app-shell .session-table tr{border:1px solid var(--p-line);border-radius:14px;padding:6px 14px;margin-bottom:10px;background:#fff}
+  .app-shell .session-table td{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid #eef2f8;white-space:normal;text-align:right}
+  .app-shell .session-table td:last-child{border-bottom:0}
+  .app-shell .session-table td::before{content:attr(data-label);color:var(--p-muted);font-weight:600;font-size:12.5px;text-align:left}
+}
+@media (prefers-reduced-motion:reduce){.app-shell .badge .live-dot{animation:none}}
+
+/* ---- Install-as-app banner ---- */
+.install-banner{position:fixed;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom));z-index:60;width:min(440px,calc(100% - 24px));display:flex;align-items:center;gap:12px;padding:10px 12px;background:#0b2850;color:#fff;border-radius:16px;box-shadow:0 14px 40px rgba(8,28,61,.35);font-family:'Manrope','DM Sans',sans-serif}
+.install-banner img{border-radius:10px;flex:none}
+.install-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:13px;color:#c9d6ea;line-height:1.35}
+.install-text b{color:#fff;font-size:14px}
+.install-text span{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.install-btn{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:10px;padding:10px 14px;background:linear-gradient(135deg,#ffd34f,#f2ae09);color:#0b2850;font-weight:800;font-size:13px}
+.install-close{border:0;background:rgba(255,255,255,.12);color:#fff;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none}
+/* Respect phone notches / home indicator when launched as an installed app */
+@media (display-mode:standalone){.app-shell .topbar{padding-top:env(safe-area-inset-top);height:calc(72px + env(safe-area-inset-top))}}
