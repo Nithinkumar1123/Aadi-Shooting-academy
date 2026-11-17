@@ -14,7 +14,10 @@ import webpush from 'npm:web-push@3.6.7';
 const env = (k: string) => Deno.env.get(k) ?? '';
 const ADMIN_ROLES = ['super_admin', 'admin', 'reception'];
 const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
-webpush.setVapidDetails(env('VAPID_SUBJECT') || 'mailto:admin@example.com', env('VAPID_PUBLIC_KEY'), env('VAPID_PRIVATE_KEY'));
+// Configured lazily so a missing/mistyped key gives a clear error message instead of the function failing to start.
+let vapidError = '';
+try { webpush.setVapidDetails(env('VAPID_SUBJECT') || 'mailto:admin@example.com', env('VAPID_PUBLIC_KEY'), env('VAPID_PRIVATE_KEY')); }
+catch (e) { vapidError = 'Push keys are missing or invalid in the function secrets (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT): ' + (e instanceof Error ? e.message : String(e)); }
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -46,6 +49,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   const body = await req.json().catch(() => ({}));
+  if (vapidError) return json({ error: vapidError }, 500);
 
   // "Send test": a signed-in user sends a test push to their own phones.
   if (body?.test) {
