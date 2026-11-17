@@ -1,6 +1,6 @@
 // AADI service worker: makes the app installable and loads the app shell fast.
 // Live data (Supabase) is NEVER cached, so attendance/status is always current.
-const CACHE = 'aadi-shell-v1';
+const CACHE = 'aadi-shell-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/aadi-logo.png'];
 
 self.addEventListener('install', (e) => {
@@ -23,4 +23,14 @@ self.addEventListener('fetch', (e) => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
     return res;
   })));
+});
+
+// Tapping a notification opens (or focuses) the app.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+    for (const w of wins) { if ('focus' in w) return w.focus(); }
+    return self.clients.openWindow(target);
+  }));
 });

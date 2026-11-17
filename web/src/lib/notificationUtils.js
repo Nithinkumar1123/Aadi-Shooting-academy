@@ -79,8 +79,16 @@ export async function requestBrowserNotifications() {
   return Notification.permission;
 }
 
-export function showBrowserNotification(title, message) {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification(title, { body: message }); } catch {}
-  }
+// Installed apps (Android/iOS) must show notifications through the service worker;
+// `new Notification()` is rejected there. Falls back to it only on desktop browsers.
+export async function showBrowserNotification(title, message) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+  const options = { body: message, icon: '/icon-192.png', badge: '/icon-192.png', tag: 'aadi-' + title, renotify: true, vibrate: [120, 60, 120], data: { url: '/' } };
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = (await navigator.serviceWorker.getRegistration()) || (await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), 1500))]));
+      if (reg) { await reg.showNotification(title, options); return true; }
+    }
+  } catch {}
+  try { new Notification(title, options); return true; } catch { return false; }
 }
