@@ -583,3 +583,11 @@ html{-webkit-text-size-adjust:100%}
 .install-close{border:0;background:rgba(255,255,255,.12);color:#fff;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none}
 /* Respect phone notches / home indicator when launched as an installed app */
 @media (display-mode:standalone){.app-shell .topbar{padding-top:env(safe-area-inset-top);height:calc(72px + env(safe-area-inset-top))}}
+
+/* ---- Phone (push) alerts toggle ---- */
+.push-top{display:inline-flex;align-items:center;gap:7px;min-height:40px;font-size:13.5px}
+.push-top.on{background:#e6f5ec;border-color:#bfe3cc;color:#1f7a44}
+.push-toast{position:fixed;top:84px;right:20px;z-index:70;max-width:340px;padding:12px 14px;border-radius:12px;background:#0b2850;color:#fff;font-size:13.5px;line-height:1.45;box-shadow:0 12px 32px rgba(8,28,61,.3)}
+.push-card{flex-wrap:wrap}
+.push-note{flex-basis:100%;margin:2px 0 0;font-size:13px;color:#a4433d}
+@media(max-width:760px){.push-top span{display:none}.push-top{padding:0 12px}.push-toast{left:12px;right:12px;max-width:none}}

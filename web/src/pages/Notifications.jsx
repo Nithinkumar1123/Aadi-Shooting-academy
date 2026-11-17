@@ -10,6 +10,7 @@ const ICONS = {
   fee_added: Wallet,
   fee_paid: CheckCheck,
   fee_overdue: AlertCircle,
+  fee_reminder: AlertCircle,
   score_published: Target,
   shooter_exit_request: UserMinus,
   exit_approved: CheckCircle2,

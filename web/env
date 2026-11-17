@@ -1,0 +1,6 @@
+ADMIN_EMAIL=admin@gmail.com
+ADMIN_NAME="Academy Admin"
+DATABASE_URL=postgresql://postgres:Aadi-shooting@123456@db.pubgefnyodcbjdipnjyv.supabase.co:5432/postgres
+VITE_SUPABASE_ANON_KEY=sb_publishable_d_QERpZm3YssEiwFsnfYWA_V1R80NlU
+VITE_SUPABASE_URL=https://pubgefnyodcbjdipnjyv.supabase.co
+VITE_VAPID_PUBLIC_KEY=BLAa7ZmP70DZ_3neFmKIq5rULEfkS1I-12qdeETKhIiBQSbjELwspTaZuC6bQEzsCazww1jXtu76s_392YKVtIQ

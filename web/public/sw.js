@@ -1,6 +1,6 @@
 // AADI service worker: makes the app installable and loads the app shell fast.
 // Live data (Supabase) is NEVER cached, so attendance/status is always current.
-const CACHE = 'aadi-shell-v2';
+const CACHE = 'aadi-shell-v3';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/aadi-logo.png'];
 
 self.addEventListener('install', (e) => {
@@ -30,7 +30,22 @@ self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const target = (e.notification.data && e.notification.data.url) || '/';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
-    for (const w of wins) { if ('focus' in w) return w.focus(); }
+    for (const w of wins) { if ('focus' in w) { if ('navigate' in w && target) { try { w.navigate(target); } catch {} } return w.focus(); } }
     return self.clients.openWindow(target);
   }));
+});
+
+// Server push: shows the notification on the lock screen even when the app is closed.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'AADI Academy', body: e.data ? e.data.text() : '' }; }
+  e.waitUntil((async () => {
+    // If the app is open and visible, it already plays its own sound + alert; don't show a duplicate.
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (wins.some((w) => w.visibilityState === 'visible')) return;
+    await self.registration.showNotification(d.title || 'AADI Academy', {
+      body: d.body || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: d.tag || 'aadi',
+      renotify: true, vibrate: [120, 60, 120], data: { url: d.url || '/' },
+    });
+  })());
 });

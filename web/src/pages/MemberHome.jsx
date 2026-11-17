@@ -6,6 +6,7 @@ import { attendanceStats, buildInsights, scorePct, sortScores, summarizeScores }
 import { METHODS, daysUntil, duration, feeState, fmtDay, fmtTime, inr } from '../lib/format';
 import './portal.css';
 import Notifications from './Notifications';
+import PushToggle from '../components/PushToggle';
 import { playNotificationSound, showBrowserNotification, unlockNotificationAudio } from '../lib/notificationUtils';
 
 const TABS = [['overview', 'Overview', LayoutGrid], ['attendance', 'Attendance', CalendarCheck], ['scores', 'Scores', Target], ['fees', 'Fees', Wallet], ['notifications', 'Notifications', Bell], ['qr', 'My QR', QrCode]];
@@ -229,6 +230,7 @@ export default function MemberHome({ shooter, session, onLogout }) {
         <span className="sp-sound-text">{soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />} Play a sound when new notifications arrive</span>
         <button className={`sp-sound-btn ${soundOn ? 'on' : ''}`} type="button" aria-pressed={soundOn} onClick={async () => { if (soundOn) { localStorage.setItem('aadi_notification_sound', 'off'); setSoundOn(false); } else { await unlockNotificationAudio(); localStorage.setItem('aadi_notification_sound', 'on'); setSoundOn(true); playNotificationSound(); } }}>{soundOn ? 'Sound on' : 'Turn on sound'}</button>
       </div>
+      <PushToggle variant="card" />
 
       {loading ? <div className="sp-panel"><p className="sp-sub">Loading your progress…</p></div> : <>
 

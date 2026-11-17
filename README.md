@@ -155,3 +155,33 @@ Apply `supabase/migrations/010_rejected_shooter_resubmission.sql` after the exis
 - Resubmission changes the application back to **Pending** for admin review.
 - Admin receives a new `registration_resubmitted` notification for the corrected application.
 - The existing membership ID is retained.
+
+## Lock-screen phone notifications (Web Push)
+Makes notifications appear on a locked phone even when the app is closed. Free. One-time setup:
+
+1. **Make keys** (any computer with Node): `npx web-push generate-vapid-keys` → copy the Public and Private key.
+2. **Render** → your site → Environment → add `VITE_VAPID_PUBLIC_KEY` = the **Public** key → redeploy.
+3. **Database**: run `npm run db:setup` (applies migration 013), then in the Supabase SQL Editor run (fill in your project ref and a long random secret):
+```sql
+insert into public.push_config(key,value) values
+ ('push_function_url','https://YOUR_PROJECT_REF.supabase.co/functions/v1/push-notify'),
+ ('push_webhook_secret','PUT-A-LONG-RANDOM-SECRET-HERE')
+on conflict (key) do update set value = excluded.value;
+```
+4. **Edge Function** (Supabase CLI, in this repo's root):
+```bash
+supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com PUSH_WEBHOOK_SECRET=PUT-A-LONG-RANDOM-SECRET-HERE
+supabase functions deploy push-notify
+```
+5. On each phone: open the installed app → tap **Phone alerts** (admin top bar) or **Turn on alerts** (member home) → Allow.
+   iPhone: needs iOS 16.4+ and the app added via Share → Add to Home Screen.
+
+### Daily fee reminders in the app + phone (migration 014)
+`npm run db:setup` also applies migration 014. Every day at 09:00 India time each pending fee sends the shooter an in-app notification (and a phone push) from 3 days before the due date, on the due date, and every day while overdue, until it is paid. Nobody needs to open the app. If it says pg_cron is unavailable, enable it in Supabase → Database → Extensions → `pg_cron`, then run `npm run db:setup` again. To run it right now for testing, in the SQL Editor: `select public.send_fee_app_reminders();`
+
+### Troubleshooting phone alerts
+- In the app tap **Test** (admin) / **Send test** (member) with the phone locked.
+- Is the phone registered? `select count(*) from public.push_subscriptions;`
+- Did the database reach the function? `select status_code, content from net._http_response order by created desc limit 5;` (200 = OK, 401 = secret mismatch, 404 = function not deployed)
+- Function errors: Supabase → Edge Functions → push-notify → Logs.
+- Android: Settings → Apps → Chrome/AADI → Battery → set to *Unrestricted* so the phone never delays alerts.
