@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, Bell, CheckCircle2, CreditCard, RefreshCw, Target, UserCheck, UserMinus, Wallet, CheckCheck } from 'lucide-react';
+import { AlertCircle, Trophy, Bell, CheckCircle2, CreditCard, RefreshCw, Target, UserCheck, UserMinus, Wallet, CheckCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 
@@ -16,6 +16,11 @@ const ICONS = {
   exit_approved: CheckCircle2,
   exit_rejected: AlertCircle,
   membership_restored: CheckCircle2,
+  match_announced: Trophy,
+  match_registration: Trophy,
+  match_positions_open: Trophy,
+  match_results_published: Trophy,
+  match_lane_assigned: Target,
 };
 
 export default function Notifications({ compact = false, shooterId = null, onUnreadChange = null }) {
@@ -60,11 +65,17 @@ export default function Notifications({ compact = false, shooterId = null, onUnr
     setUnread((n) => { const next = Math.max(0, n - 1); onUnreadChange?.(next); return next; });
   }
   async function markAllRead() {
-    const ids = items.filter((x) => !x.read_at).map((x) => x.id);
-    if (!ids.length) return;
-    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).in('id', ids);
-    setItems((old) => old.map((x) => ({ ...x, read_at: x.read_at || new Date().toISOString() })));
+    if (!unread) return;
+    // Mark EVERY unread notification for this user, not just the few shown on screen
+    // (the badge counts all of them, so older unread ones used to keep it stuck on 6).
+    const now = new Date().toISOString();
+    let q = supabase.from('notifications').update({ read_at: now }).is('read_at', null);
+    q = shooterId ? q.eq('audience', 'shooter').eq('shooter_id', shooterId) : q.eq('audience', 'admin');
+    const { error } = await q;
+    if (error) { setError(error.message); return; }
+    setItems((old) => old.map((x) => ({ ...x, read_at: x.read_at || now })));
     setUnread(0); onUnreadChange?.(0);
+    load(); // re-sync the real count from the database
   }
 
   return <>

@@ -40,7 +40,7 @@ export function playAttendanceSound(kind = 'success') {
 }
 
 export async function playNotificationSound(type = 'notification') {
-  if (localStorage.getItem('aadi_notification_sound') === 'off') return false;
+  if (localStorage.getItem('aadi_notification_sound') !== 'on') return false; // sound follows the single Alerts switch
   try {
     const ctx = getAudioContext();
     if (!ctx) return false;

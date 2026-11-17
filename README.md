@@ -173,7 +173,7 @@ on conflict (key) do update set value = excluded.value;
 supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com PUSH_WEBHOOK_SECRET=PUT-A-LONG-RANDOM-SECRET-HERE
 supabase functions deploy push-notify
 ```
-5. On each phone: open the installed app → tap **Phone alerts** (admin top bar) or **Turn on alerts** (member home) → Allow.
+5. On each phone: open the installed app → tap the single **Alerts** button (admin top bar) or **Turn on alerts** (member home) → Allow. One switch controls both the sound and the phone notifications.
    iPhone: needs iOS 16.4+ and the app added via Share → Add to Home Screen.
 
 ### Daily fee reminders in the app + phone (migration 014)
@@ -185,3 +185,25 @@ supabase functions deploy push-notify
 - Did the database reach the function? `select status_code, content from net._http_response order by created desc limit 5;` (200 = OK, 401 = secret mismatch, 404 = function not deployed)
 - Function errors: Supabase → Edge Functions → push-notify → Logs.
 - Android: Settings → Apps → Chrome/AADI → Battery → set to *Unrestricted* so the phone never delays alerts.
+
+
+## Matches, registration and live positions (migration 015)
+
+Run `npm run db:setup` to apply migration 015.
+
+**Admin → Matches**
+1. *Organise match* – name, date, discipline, venue, shots and maximum score. Every active shooter is notified.
+2. Shooters register from the **Matches** tab in their portal while status is *Registration open*. You can also add or remove shooters yourself.
+3. Open **Manage match** to add, edit or delete each shooter's score (with inner tens as the tie-breaker). The leaderboard re-ranks instantly.
+4. Use the **Shooters can see their position** switch to give or take back permission per match.
+5. Move the status through *Registration open → closed → Live → Completed*.
+
+**Shooter → Matches** – register / withdraw, and (only when you allow it) see **their own** position and score, updating live. Shooters never see other shooters' names or scores; the database only returns their own rank.
+
+### Sheet-wise scores and results (migration 016)
+
+- When organising a match set the **number of sheets** and **shots per sheet** (default 6 × 10 = 60 shots, maximum 654).
+- In **Manage match → Add score** enter one score per sheet (leave a sheet empty until it has been shot). The total is calculated automatically, and an optional **Lane / target no.** can be set.
+- A shooter always sees their own score per sheet and total, live. Their **position** appears only when *Shooters can see their position* is ON.
+- Set the match to **Completed**, then switch on **Publish full results** so registered shooters can open **View full results** (every shooter's position and sheet scores, with their own row highlighted).
+- The welcome card in the shooter portal now shows the member's **QR code** (tap to enlarge for the front desk). It only displays the QR already saved on that device, and never issues a new one by itself.

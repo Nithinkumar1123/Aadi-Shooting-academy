@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, Route, Routes, useNavigate, Link, Navigate } from 'react-router-dom';
 import { Activity, Bell, CalendarDays, LayoutDashboard, LogOut, Menu, QrCode, Settings, ShieldCheck, Target, UserCheck, Users, Wallet, ArrowRight, CheckCircle2, MapPin, Phone, Clock3, Trophy, Crosshair, House, BookOpen, MapPinned, Medal, TrendingUp, X, Star, Mail, ChevronDown, ArrowUp, UserPlus, ClipboardCheck, Eye, EyeOff, Lock, ArrowLeft } from 'lucide-react';
 import { supabase, supabaseConfigured } from './lib/supabase';
-import PushToggle from './components/PushToggle';
+import AlertsToggle from './components/AlertsToggle';
 import { detachPush } from './lib/push';
-import { playNotificationSound, showBrowserNotification, unlockNotificationAudio, requestBrowserNotifications } from './lib/notificationUtils';
+import { playNotificationSound, showBrowserNotification, unlockNotificationAudio } from './lib/notificationUtils';
 import Dashboard from './pages/Dashboard';
 import Shooters from './pages/Shooters';
 import Attendance from './pages/Attendance';
 import Approvals from './pages/Approvals';
 import ShooterPortal from './pages/ShooterPortal';
 import Scores from './pages/Scores';
+import Matches from './pages/Matches';
 import Payments from './pages/Payments';
 import Notifications from './pages/Notifications';
 
@@ -309,7 +310,6 @@ function AuthScreen({ initialMode='signin' }) {
 
 function AdminShell({ session, onLogout }) {
   const [mobileOpen,setMobileOpen]=useState(false); const [pending,setPending]=useState(0); const [unreadNotifications,setUnreadNotifications]=useState(0);
-  const [notificationSoundOn,setNotificationSoundOn]=useState(localStorage.getItem('aadi_notification_sound') !== 'off');
   // Mobile menu: Esc closes, page scroll is locked while open, auto-close on desktop resize, swipe left to close
   useEffect(()=>{
     if(!mobileOpen) return;
@@ -325,7 +325,7 @@ function AdminShell({ session, onLogout }) {
   async function loadPending(){const {count}=await supabase.from('shooters').select('id',{count:'exact',head:true}).eq('approval_status','pending');setPending(count||0); const {count:unread}=await supabase.from('notifications').select('id',{count:'exact',head:true}).eq('audience','admin').is('read_at',null); setUnreadNotifications(unread||0);}
   useEffect(()=>{
     loadPending();
-    const unlock=()=>{ if(notificationSoundOn) unlockNotificationAudio(); };
+    const unlock=()=>{ unlockNotificationAudio(); };
     window.addEventListener('pointerdown', unlock, {once:true});
     const refreshUnreadNotifications = async () => {
       const { count } = await supabase
@@ -343,7 +343,7 @@ function AdminShell({ session, onLogout }) {
         // local counter. This keeps the sidebar badge in sync when an item
         // is already read or when several notifications arrive together.
         await refreshUnreadNotifications();
-        if(notificationSoundOn){ await playNotificationSound(row.type || 'notification'); }
+        await playNotificationSound(row.type || 'notification'); // does nothing unless Alerts are on
         showBrowserNotification(row.title || 'AADI Academy', row.message || 'You have a new academy notification.');
       })
       .on('postgres_changes',{event:'UPDATE',schema:'public',table:'notifications'},async(payload)=>{
@@ -352,15 +352,9 @@ function AdminShell({ session, onLogout }) {
       })
       .subscribe();
     return()=>{ window.removeEventListener('pointerdown', unlock); supabase.removeChannel(channel); };
-  },[notificationSoundOn]);
-  async function toggleNotificationSound(){
-    const next=!notificationSoundOn;
-    setNotificationSoundOn(next);
-    localStorage.setItem('aadi_notification_sound',next?'on':'off');
-    if(next){ await unlockNotificationAudio(); await requestBrowserNotifications(); await playNotificationSound('notification'); }
-  }
-  const nav=[['/','Overview',LayoutDashboard],['/approvals','Approvals',UserCheck],['/shooters','Shooters',Users],['/attendance','Check-in / check-out',QrCode],['/scores','Shooting scores',Target],['/payments','Fees & payments',Wallet],['/notifications','Notifications',Bell],['/settings','Settings',Settings]];
-  return <div className="app-shell"><div className={`sidebar-backdrop ${mobileOpen?'show':''}`} onClick={()=>setMobileOpen(false)} aria-hidden="true"/><aside id="admin-sidebar" className={`sidebar ${mobileOpen?'open':''}`} aria-label="Main navigation" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}><button type="button" className="sidebar-close" onClick={()=>setMobileOpen(false)} aria-label="Close menu"><X size={20}/></button><Link to="/" className="side-logo" aria-label="AADI home"><img src="/aadi-logo.png" alt="AADI Rifle Shooting Academy"/></Link><div className="side-label">Academy workspace</div><nav>{nav.map(([path,label,Icon])=><NavLink key={path} to={path} end={path==='/'} onClick={()=>setMobileOpen(false)}><Icon size={18}/>{label}{label==='Approvals'&&pending>0&&<span className="nav-count">{pending}</span>}{label==='Notifications'&&unreadNotifications>0&&<span className="nav-count">{unreadNotifications}</span>}</NavLink>)}</nav><div className="sidebar-bottom"><div className="secure-note"><ShieldCheck size={17}/><span>Secure academy workspace</span></div><button className="logout" onClick={onLogout}><LogOut size={17}/>Sign out</button></div></aside><main className="main"><header className="topbar"><button type="button" className="icon-btn mobile-menu" aria-label="Open menu" aria-expanded={mobileOpen} aria-controls="admin-sidebar" onClick={()=>setMobileOpen(true)}><Menu/></button><div><p className="eyebrow">AADI Rifle Shooting Academy</p><strong>Academy management</strong></div><div className="top-actions"><button className="secondary notification-sound-toggle" onClick={toggleNotificationSound} title="Enable or disable notification sounds">{notificationSoundOn?'🔔 Sound on':'🔕 Sound off'}</button><PushToggle/><span className="status-pill"><i/> Connected</span><div className="avatar" title={session.user.email}>{(session.user.email||'AD').slice(0,2).toUpperCase()}</div></div></header><div className="page-content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/approvals" element={<Approvals onChanged={loadPending}/>}/><Route path="/shooters" element={<Shooters/>}/><Route path="/attendance" element={<Attendance/>}/><Route path="/scores" element={<Scores/>}/><Route path="/payments" element={<Payments/>}/><Route path="/notifications" element={<Notifications/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Routes></div></main></div>;
+  },[]);
+  const nav=[['/','Overview',LayoutDashboard],['/approvals','Approvals',UserCheck],['/shooters','Shooters',Users],['/attendance','Check-in / check-out',QrCode],['/scores','Shooting scores',Target],['/matches','Matches',Trophy],['/payments','Fees & payments',Wallet],['/notifications','Notifications',Bell],['/settings','Settings',Settings]];
+  return <div className="app-shell"><div className={`sidebar-backdrop ${mobileOpen?'show':''}`} onClick={()=>setMobileOpen(false)} aria-hidden="true"/><aside id="admin-sidebar" className={`sidebar ${mobileOpen?'open':''}`} aria-label="Main navigation" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}><button type="button" className="sidebar-close" onClick={()=>setMobileOpen(false)} aria-label="Close menu"><X size={20}/></button><Link to="/" className="side-logo" aria-label="AADI home"><img src="/aadi-logo.png" alt="AADI Rifle Shooting Academy"/></Link><div className="side-label">Academy workspace</div><nav>{nav.map(([path,label,Icon])=><NavLink key={path} to={path} end={path==='/'} onClick={()=>setMobileOpen(false)}><Icon size={18}/>{label}{label==='Approvals'&&pending>0&&<span className="nav-count">{pending}</span>}{label==='Notifications'&&unreadNotifications>0&&<span className="nav-count">{unreadNotifications}</span>}</NavLink>)}</nav><div className="sidebar-bottom"><div className="secure-note"><ShieldCheck size={17}/><span>Secure academy workspace</span></div><button className="logout" onClick={onLogout}><LogOut size={17}/>Sign out</button></div></aside><main className="main"><header className="topbar"><button type="button" className="icon-btn mobile-menu" aria-label="Open menu" aria-expanded={mobileOpen} aria-controls="admin-sidebar" onClick={()=>setMobileOpen(true)}><Menu/></button><div><p className="eyebrow">AADI Rifle Shooting Academy</p><strong>Academy management</strong></div><div className="top-actions"><AlertsToggle/><span className="status-pill"><i/> Connected</span><div className="avatar" title={session.user.email}>{(session.user.email||'AD').slice(0,2).toUpperCase()}</div></div></header><div className="page-content"><Routes><Route path="/" element={<Dashboard/>}/><Route path="/approvals" element={<Approvals onChanged={loadPending}/>}/><Route path="/shooters" element={<Shooters/>}/><Route path="/attendance" element={<Attendance/>}/><Route path="/scores" element={<Scores/>}/><Route path="/matches" element={<Matches/>}/><Route path="/payments" element={<Payments/>}/><Route path="/notifications" element={<Notifications/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Routes></div></main></div>;
 }
 
 export default function App() {

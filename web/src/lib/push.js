@@ -47,17 +47,3 @@ export async function disablePush() {
 export async function resyncPush() { try { const sub = await getSub(); if (sub && Notification.permission === 'granted') await save(sub); } catch {} }
 // On sign-out stop this phone receiving the previous user's alerts (re-attached on next sign-in).
 export async function detachPush() { try { const sub = await getSub(); if (sub) await supabase.rpc('remove_push_subscription', { p_endpoint: sub.endpoint }); } catch {} }
-
-// Sends a test push to this user's own phones (verifies the whole chain works, incl. a locked screen).
-export async function sendTestPush() {
-  const { data, error } = await supabase.functions.invoke('push-notify', { body: { test: true } });
-  if (error) {
-    // Show the real reason (404 = not deployed, 401 = JWT check still on, 500 = bad keys ...)
-    let detail = '';
-    try { const r = error.context; if (r && r.status) { const t = await r.json().catch(() => null); detail = `(${r.status}${t?.error ? ': ' + t.error : t?.message ? ': ' + t.message : ''})`; } } catch {}
-    throw new Error(detail ? `Push service error ${detail}` : 'Could not reach the push service. Check that the push-notify function is deployed and "Enforce JWT verification" is OFF for it.');
-  }
-  if (data?.error) throw new Error(data.error);
-  if (!data?.sent) throw new Error('The test was not delivered. Turn alerts off and on again, then retry.');
-  return data.sent;
-}

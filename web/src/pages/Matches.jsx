@@ -1,0 +1,502 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, CalendarDays, Eye, EyeOff, MapPin, Medal, Minus, Pencil, Plus, Printer, Send, Trash2, Trophy, UserMinus, UserPlus, Users, Wand2, X } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { fmtDay } from '../lib/format';
+
+const todayStr = () => new Date().toLocaleDateString('en-CA');
+export const MATCH_STATUS = { open: ['Registration open', 'green'], closed: ['Registration closed', 'amber'], live: ['Live', 'red'], completed: ['Completed', 'gray'] };
+const fmt = (n) => (Math.round(Number(n) * 10) / 10).toFixed(1);
+
+// Competition ranking: higher score first, then more inner tens. Equal on both = same place (1, 2, 2, 4).
+export function rankRows(rows) {
+  const scored = rows.filter((r) => r.score !== null).sort((a, b) => b.score - a.score || b.inner_tens - a.inner_tens || a.name.localeCompare(b.name));
+  let prev = null, place = 0;
+  scored.forEach((r, i) => { if (!prev || r.score !== prev.score || r.inner_tens !== prev.inner_tens) place = i + 1; r.rank = place; prev = r; });
+  const waiting = rows.filter((r) => r.score === null).sort((a, b) => a.name.localeCompare(b.name)).map((r) => ({ ...r, rank: null }));
+  return [...scored, ...waiting];
+}
+
+export default function Matches() {
+  const [matches, setMatches] = useState([]);
+  const [counts, setCounts] = useState({});
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [editing, setEditing] = useState(null); // null | 'new' | match
+  const [selectedId, setSelectedId] = useState(null);
+
+  const load = useCallback(async () => {
+    const [m, r] = await Promise.all([
+      supabase.from('matches').select('*').order('match_date', { ascending: false }).order('created_at', { ascending: false }),
+      supabase.from('match_registrations').select('match_id'),
+    ]);
+    const err = m.error || r.error;
+    setError(err ? err.message + ' (Has migration 015 been applied? Run npm run db:setup.)' : '');
+    setMatches(m.data || []);
+    const c = {}; (r.data || []).forEach((x) => { c[x.match_id] = (c[x.match_id] || 0) + 1; }); setCounts(c);
+  }, []);
+
+  useEffect(() => {
+    load();
+    const ch = supabase.channel('aadi-admin-matches-list')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, load)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_registrations' }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [load]);
+
+  const selected = matches.find((m) => m.id === selectedId);
+  if (selected) return <MatchDetail match={selected} onBack={() => setSelectedId(null)} onEdit={() => setEditing(selected)} onChanged={load}
+    modal={editing && <MatchModal match={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onDone={(t) => { setEditing(null); setNotice(t); load(); }} />} />;
+
+  async function remove(m) {
+    if (!window.confirm(`Delete “${m.name}”? Its registrations and all scores will be removed permanently.`)) return;
+    const { error } = await supabase.from('matches').delete().eq('id', m.id);
+    if (error) setError(error.message); else { setNotice('Match deleted.'); load(); }
+  }
+
+  const upcoming = matches.filter((m) => m.status !== 'completed').length;
+  return <>
+    <div className="page-heading"><div>
+      <p className="eyebrow">COMPETITIONS</p><h1>Matches</h1>
+      <p className="muted">Organise a match, let shooters register, enter their scores and decide when they can see their own position.</p>
+    </div><button className="primary" onClick={() => setEditing('new')}><Plus size={16} /> Organise match</button></div>
+
+    {error && <div className="alert error">{error}</div>}
+    {notice && <div className="alert success">{notice}</div>}
+
+    <div className="stat-grid">
+      {[['Total matches', matches.length, Trophy, 'All time'], ['Upcoming / live', upcoming, CalendarDays, 'Not yet completed'], ['Registrations', Object.values(counts).reduce((a, b) => a + b, 0), Users, 'Across all matches'], ['Completed', matches.length - upcoming, Medal, 'Finished matches']].map(([label, value, Icon, desc]) =>
+        <div className="stat-card" key={label}><div className="stat-top"><span>{label}</span><span className="stat-icon"><Icon size={19} /></span></div><div className="stat-value">{value}</div><p>{desc}</p></div>)}
+    </div>
+
+    {matches.length === 0 ? <section className="panel"><div className="empty-inline"><Trophy /><p>No matches yet.</p><span>Click “Organise match” to create the first one. Shooters are notified automatically.</span></div></section> :
+      <div className="match-grid">{matches.map((m) => { const [label, tone] = MATCH_STATUS[m.status] || MATCH_STATUS.open; return <article className="panel match-card" key={m.id}>
+        <div className="match-card-top"><span className={`badge ${tone}`}>{label}</span>{m.positions_visible && <span className="badge green"><Eye size={11} style={{ marginRight: 4 }} />Positions shown</span>}</div>
+        <h2>{m.name}</h2>
+        <p className="muted match-meta"><CalendarDays size={13} /> {fmtDay(m.match_date)} · {m.discipline}</p>
+        {m.venue && <p className="muted match-meta"><MapPin size={13} /> {m.venue}</p>}
+        <p className="match-count"><Users size={15} /> <b>{counts[m.id] || 0}</b> registered</p>
+        <div className="row-actions">
+          <button className="primary" onClick={() => setSelectedId(m.id)}>Manage match</button>
+          <button className="small-outline" onClick={() => setEditing(m)} title="Edit details"><Pencil size={13} /></button>
+          <button className="small-outline no" onClick={() => remove(m)} title="Delete match"><Trash2 size={13} /></button>
+        </div>
+      </article>; })}</div>}
+
+    {editing && <MatchModal match={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onDone={(t) => { setEditing(null); setNotice(t); load(); }} />}
+  </>;
+}
+
+function MatchDetail({ match, onBack, onEdit, onChanged, modal }) {
+  const [regs, setRegs] = useState([]);
+  const [scores, setScores] = useState([]);
+  const [shooters, setShooters] = useState([]);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [scoreFor, setScoreFor] = useState(null); // { shooter_id, name, existing }
+  const [addId, setAddId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [livePulse, setLivePulse] = useState(false);
+
+  const load = useCallback(async () => {
+    const [r, s, sh] = await Promise.all([
+      supabase.from('match_registrations').select('id, shooter_id, registered_at, lane_no, relay, sheet_targets, shooters(full_name, shooter_code)').eq('match_id', match.id),
+      supabase.from('match_scores').select('*').eq('match_id', match.id),
+      supabase.from('shooters').select('id, full_name, shooter_code').eq('status', 'active').eq('approval_status', 'approved').order('full_name'),
+    ]);
+    const err = r.error || s.error || sh.error;
+    if (err) setError(err.message); else setError('');
+    setRegs(r.data || []); setScores(s.data || []); setShooters(sh.data || []);
+  }, [match.id]);
+
+  useEffect(() => {
+    load();
+    const ch = supabase.channel(`aadi-admin-match-${match.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_scores', filter: `match_id=eq.${match.id}` }, () => { load(); setLivePulse(true); setTimeout(() => setLivePulse(false), 1200); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_registrations', filter: `match_id=eq.${match.id}` }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [match.id, load]);
+
+  const board = useMemo(() => {
+    const byShooter = new Map(scores.map((s) => [s.shooter_id, s]));
+    return rankRows(regs.map((r) => { const s = byShooter.get(r.shooter_id); return {
+      shooter_id: r.shooter_id, reg_id: r.id, name: r.shooters?.full_name || 'Shooter', code: r.shooters?.shooter_code,
+      score: s ? Number(s.score) : null, inner_tens: s ? s.inner_tens : 0, notes: s?.notes, score_id: s?.id, existing: s,
+      lane: r.lane_no, relay: r.relay || 1, targets: r.sheet_targets || null, sheets: s?.sheet_scores || null,
+    }; }));
+  }, [regs, scores]);
+
+  const sheetNums = Array.from({ length: match.sheets || 1 }, (_, i) => i + 1);
+  const scoredCount = board.filter((r) => r.score !== null).length;
+  const leader = board.find((r) => r.rank === 1);
+  const available = shooters.filter((s) => !regs.some((r) => r.shooter_id === s.id));
+
+  async function patchMatch(patch, text) {
+    setBusy(true);
+    const { error } = await supabase.from('matches').update(patch).eq('id', match.id);
+    setBusy(false);
+    if (error) setError(error.message); else { setNotice(text); onChanged(); }
+  }
+  async function deleteScore(r) {
+    if (!window.confirm(`Delete ${r.name}’s score (${fmt(r.score)})? They stay registered.`)) return;
+    const { error } = await supabase.from('match_scores').delete().eq('id', r.score_id);
+    if (error) setError(error.message); else { setNotice('Score deleted.'); load(); }
+  }
+  async function removeShooter(r) {
+    if (!window.confirm(`Remove ${r.name} from this match? Their score (if any) will be deleted too.`)) return;
+    const { error } = await supabase.from('match_registrations').delete().eq('id', r.reg_id);
+    if (error) setError(error.message); else { setNotice(`${r.name} removed.`); load(); }
+  }
+  async function addShooter() {
+    if (!addId) return;
+    const { error } = await supabase.from('match_registrations').insert({ match_id: match.id, shooter_id: addId });
+    if (error) setError(error.message); else { setAddId(''); setNotice('Shooter added to the match.'); load(); }
+  }
+
+  const [label, tone] = MATCH_STATUS[match.status] || MATCH_STATUS.open;
+  return <>
+    <div className="page-heading"><div>
+      <button className="link-button secondary" onClick={onBack} style={{ marginBottom: 12 }}><ArrowLeft size={14} /> All matches</button>
+      <p className="eyebrow">MATCH · {fmtDay(match.match_date)}</p>
+      <h1>{match.name} <span className={`badge ${tone}`} style={{ verticalAlign: 'middle' }}>{label}</span></h1>
+      <p className="muted">{match.discipline}{match.venue ? ` · ${match.venue}` : ''} · {match.sheets} sheets × {match.shots_per_sheet} shots · maximum {fmt(match.max_score)}</p>
+      {match.description && <p className="muted" style={{ marginTop: 4 }}>{match.description}</p>}
+    </div><button className="secondary" onClick={onEdit}><Pencil size={15} /> Edit match</button></div>
+
+    {error && <div className="alert error">{error}</div>}
+    {notice && <div className="alert success" onClick={() => setNotice('')}>{notice}</div>}
+
+    <section className="panel match-controls">
+      <label className="match-control"><span><b>Match status</b><small>Shooters can register only while registration is open.</small></span>
+        <select value={match.status} disabled={busy} onChange={(e) => patchMatch({ status: e.target.value }, 'Status updated.')}>
+          {Object.entries(MATCH_STATUS).map(([k, [t]]) => <option key={k} value={k}>{t}</option>)}
+        </select></label>
+      <div className="match-control"><span><b>Shooters can see their position</b><small>{match.positions_visible ? 'ON — each registered shooter sees only their own position, updated live.' : 'OFF — shooters cannot see any position yet.'}</small></span>
+        <button className={`switch ${match.positions_visible ? 'on' : ''}`} role="switch" aria-checked={match.positions_visible} disabled={busy}
+          onClick={() => patchMatch({ positions_visible: !match.positions_visible }, match.positions_visible ? 'Positions hidden from shooters.' : 'Positions are now visible to shooters.')}>
+          <i />{match.positions_visible ? <><Eye size={14} /> Visible</> : <><EyeOff size={14} /> Hidden</>}</button></div>
+      <div className="match-control span-all"><span><b>Publish full results to shooters</b><small>{match.status !== 'completed' ? 'Available once the match status is “Completed”. Then every registered shooter can see all positions and sheet scores.' : match.results_published ? 'ON — registered shooters can see everyone’s position and scores.' : 'OFF — shooters still see only their own result.'}</small></span>
+        <button className={`switch ${match.results_published ? 'on' : ''}`} role="switch" aria-checked={match.results_published} disabled={busy || match.status !== 'completed'}
+          onClick={() => patchMatch({ results_published: !match.results_published }, match.results_published ? 'Full results hidden.' : 'Full results published to shooters.')}>
+          <i />{match.results_published ? <><Eye size={14} /> Published</> : <><EyeOff size={14} /> Not published</>}</button></div>
+    </section>
+
+    <div className="stat-grid">
+      {[['Registered', regs.length, Users, 'Shooters in this match'], ['Scored', `${scoredCount}/${regs.length}`, Medal, 'Scores entered'], ['Leader', leader ? leader.name : '—', Trophy, leader ? `${fmt(leader.score)} points` : 'No scores yet'], ['Top score', leader ? fmt(leader.score) : '—', Trophy, `out of ${fmt(match.max_score)}`]].map(([l, v, Icon, d]) =>
+        <div className="stat-card" key={l}><div className="stat-top"><span>{l}</span><span className="stat-icon"><Icon size={19} /></span></div><div className="stat-value" style={typeof v === 'string' && v.length > 8 ? { fontSize: 19 } : null}>{v}</div><p>{d}</p></div>)}
+    </div>
+
+    <LanePlan match={match} regs={regs} shooters={shooters} onChanged={() => { load(); onChanged(); }} setError={setError} setNotice={setNotice} />
+
+    <section className="panel">
+      <div className="panel-heading"><div><h2>Leaderboard <span className={`live-dot ${livePulse ? 'pulse' : ''}`}><i /> Live</span></h2><p className="muted">Sheet-wise scores (S1, S2…), ranked by total then inner tens. Updates the moment a score is saved.</p></div></div>
+      <div className="table-wrap"><table>
+        <thead><tr><th>Pos</th><th>Shooter</th><th>Lane</th>{sheetNums.map((n) => <th key={n}>S{n}</th>)}<th>Total</th><th>Inner tens</th><th></th></tr></thead>
+        <tbody>{board.map((r) => <tr key={r.shooter_id} className={r.rank && r.rank <= 3 ? `podium p${r.rank}` : ''}>
+          <td>{r.rank ? <span className={`rank-chip r${Math.min(r.rank, 4)}`}>{r.rank}</span> : <small style={{ color: '#a1aabb' }}>—</small>}</td>
+          <td><b>{r.name}</b><small style={{ display: 'block', color: '#8792a4' }}>{r.code}</small></td>
+          <td>{r.lane ? <>{(match.relays || 1) > 1 && <small style={{ color: '#8792a4' }}>R{r.relay} · </small>}<b>L{r.lane}</b></> : <small style={{ color: '#a1aabb' }}>—</small>}</td>
+          {sheetNums.map((n) => <td key={n}>{r.sheets && r.sheets[n - 1] !== null && r.sheets[n - 1] !== undefined ? fmt(r.sheets[n - 1]) : <small style={{ color: '#c0c7d3' }}>·</small>}</td>)}
+          <td>{r.score === null ? <span className="badge gray">Awaiting score</span> : <><b>{fmt(r.score)}</b> <small style={{ color: '#8792a4' }}>/ {fmt(match.max_score)}</small></>}</td>
+          <td>{r.score === null ? '—' : r.inner_tens}</td>
+          <td className="row-actions">
+            <button className="small-outline ok" onClick={() => setScoreFor({ shooter_id: r.shooter_id, reg_id: r.reg_id, name: r.name, lane: r.lane, existing: r.existing })}>{r.score === null ? <><Plus size={13} /> Add score</> : <><Pencil size={13} /> Edit</>}</button>
+            {r.score !== null && <button className="small-outline no" onClick={() => deleteScore(r)} title="Delete score"><Trash2 size={13} /></button>}
+            <button className="small-outline" onClick={() => removeShooter(r)} title="Remove from match"><UserMinus size={13} /></button>
+          </td>
+        </tr>)}</tbody>
+      </table>
+      {board.length === 0 && <div className="empty-inline"><Users /><p>No shooters have registered yet.</p><span>They can register from the Matches tab in their portal{match.status === 'open' ? '' : ' (registration is not open right now)'}.</span></div>}</div>
+    </section>
+
+    <section className="panel">
+      <div className="panel-heading"><div><h2>Add a shooter</h2><p className="muted">Register a shooter yourself, for example if they told you in person.</p></div></div>
+      <div className="row-actions" style={{ flexWrap: 'wrap' }}>
+        <select className="match-select" value={addId} onChange={(e) => setAddId(e.target.value)}><option value="">Choose a shooter…</option>{available.map((s) => <option key={s.id} value={s.id}>{s.full_name} ({s.shooter_code})</option>)}</select>
+        <button className="primary" disabled={!addId} onClick={addShooter}><UserPlus size={15} /> Add to match</button>
+      </div>
+    </section>
+
+    {scoreFor && <ScoreModal match={match} target={scoreFor} onClose={() => setScoreFor(null)} onDone={(t) => { setScoreFor(null); setNotice(t); load(); }} />}
+    {modal}
+  </>;
+}
+
+function ScoreModal({ match, target, onClose, onDone }) {
+  const ex = target.existing;
+  const n = match.sheets || 1;
+  const per = match.shots_per_sheet || 10;
+  const S = match.sighting_sheets || 0; // sighting sheets: shown first, never counted
+  const perSheetMax = Math.round((Number(match.max_score) / n) * 10) / 10;
+  const shotMax = Math.round((Number(match.max_score) / (n * per)) * 10) / 10;
+  const hasShots = Array.isArray(ex?.shot_scores) && ex.shot_scores.length > 0;
+  const legacyTotal = ex && !ex.sheet_scores ? Number(ex.score) : null;
+  const [mode, setMode] = useState(ex && !hasShots && ex.sheet_scores ? 'totals' : 'shots');
+  const [sheet, setSheet] = useState(0);
+  const [shots, setShots] = useState(() => Array.from({ length: n }, (_, i) => Array.from({ length: per }, (_, j) => {
+    const v = ex?.shot_scores?.[i]?.[j]; return v === null || v === undefined ? '' : String(Number(v)); })));
+  const [sight, setSight] = useState(() => Array.from({ length: S }, (_, i) => Array.from({ length: per }, (_, j) => {
+    const v = ex?.sighting_scores?.[i]?.[j]; return v === null || v === undefined ? '' : String(Number(v)); })));
+  const [totals, setTotals] = useState(() => Array.from({ length: n }, (_, i) => (ex?.sheet_scores && ex.sheet_scores[i] !== null && ex.sheet_scores[i] !== undefined ? String(Number(ex.sheet_scores[i])) : '')));
+  const [inner, setInner] = useState(ex ? String(ex.inner_tens) : '0');
+  const [notes, setNotes] = useState(ex?.notes || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const r1 = (x) => Math.round(x * 10) / 10;
+  const num = (v) => (String(v).trim() === '' ? null : Number(v));
+  const badShot = (v) => { const x = num(v); return x !== null && (!Number.isFinite(x) || x < 0 || x > shotMax); };
+
+  // per-sheet totals + completeness, from whichever mode is active
+  const sheetInfo = Array.from({ length: n }, (_, i) => {
+    if (mode === 'shots') { const vals = shots[i].map(num).filter((x) => x !== null && Number.isFinite(x)); return { total: r1(vals.reduce((a, b) => a + b, 0)), count: vals.length, bad: shots[i].some(badShot) }; }
+    const x = num(totals[i]); return { total: x === null || !Number.isFinite(x) ? 0 : x, count: x === null ? 0 : per, bad: x !== null && (!Number.isFinite(x) || x < 0 || x > perSheetMax) };
+  });
+  const anyBad = sheetInfo.some((s) => s.bad);
+  const entered = sheetInfo.filter((s) => s.count > 0);
+  const total = r1(sheetInfo.reduce((a, s) => a + s.total, 0));
+  const shotsDone = sheetInfo.reduce((a, s) => a + (mode === 'shots' ? s.count : 0), 0);
+
+  const isSight = mode === 'shots' && sheet < S;
+  const k = sheet - S; // index of the scored sheet when not on a sighting tab
+  const curShots = isSight ? sight[sheet] : shots[k] || [];
+  const sightInfo = sight.map((row) => ({ count: row.filter((v) => num(v) !== null).length, bad: row.some(badShot) }));
+  const setShot = (j, val) => (isSight
+    ? setSight(sight.map((row, i) => (i === sheet ? row.map((v, q) => (q === j ? val : v)) : row)))
+    : setShots(shots.map((row, i) => (i === k ? row.map((v, q) => (q === j ? val : v)) : row))));
+  function onShotChange(j, e) {
+    const val = e.target.value.replace(',', '.').replace(/[^0-9.]/g, '');
+    setShot(j, val);
+    // 10.4 / 9.8 style entries are complete after one decimal – jump to the next shot automatically
+    if (/^\d{1,2}\.\d$/.test(val)) { const nxt = e.target.form?.querySelector(`[data-shot="${j + 1}"]`); if (nxt) nxt.focus(); }
+  }
+  function onShotKey(j, e) { if (e.key === 'Enter') { e.preventDefault(); const nxt = e.currentTarget.form?.querySelector(`[data-shot="${j + 1}"]`); if (nxt) nxt.focus(); else if (sheet < S + n - 1) setSheet(sheet + 1); } }
+
+  async function submit(e) {
+    e.preventDefault(); setError('');
+    if (anyBad || sightInfo.some((x) => x.bad)) { setError(mode === 'shots' ? `Each shot must be between 0 and ${fmt(shotMax)}.` : `Each sheet must be between 0 and ${fmt(perSheetMax)}.`); return; }
+    if (entered.length === 0) { setError(mode === 'shots' ? 'Enter at least one shot.' : 'Enter at least one sheet score.'); return; }
+    const it = Number(inner);
+    if (!Number.isInteger(it) || it < 0) { setError('Inner tens must be a whole number (0 or more).'); return; }
+    setBusy(true);
+    const sheetScores = sheetInfo.map((s) => (s.count > 0 ? r1(s.total) : null));
+    const shotPayload = mode === 'shots' ? shots.map((row) => row.map(num)) : null;
+    const row = { match_id: match.id, shooter_id: target.shooter_id, score: total, sheet_scores: sheetScores, shot_scores: shotPayload, sighting_scores: mode === 'shots' && sight.some((r) => r.some((v) => num(v) !== null)) ? sight.map((r) => r.map(num)) : null, inner_tens: it, notes: notes.trim() || null };
+    const { error } = ex ? await supabase.from('match_scores').update(row).eq('id', ex.id) : await supabase.from('match_scores').insert(row);
+    setBusy(false);
+    if (error) setError(error.message); else onDone(`${target.name}: ${entered.length} of ${n} sheets saved · total ${fmt(total)}.`);
+  }
+
+  return <div className="modal-backdrop"><div className="modal score-modal">
+    <div className="modal-head"><div><h2>{ex ? 'Edit score' : 'Add score'}</h2><p className="muted">{target.name} · {match.name}{target.lane ? ` · Lane ${target.lane}` : ''}</p></div><button className="icon-btn" onClick={onClose}><X /></button></div>
+    {legacyTotal !== null && <div className="alert error" style={{ fontSize: 12 }}>This shooter has a total of {fmt(legacyTotal)} saved without sheet details. Entering scores below will replace it.</div>}
+    <form onSubmit={submit} className="form-grid">
+      <div className="span-2 mode-switch2" role="tablist">
+        <button type="button" role="tab" aria-selected={mode === 'shots'} className={mode === 'shots' ? 'on' : ''} onClick={() => setMode('shots')}>Shot by shot</button>
+        <button type="button" role="tab" aria-selected={mode === 'totals'} className={mode === 'totals' ? 'on' : ''} onClick={() => setMode('totals')}>Sheet totals only</button>
+      </div>
+
+      {mode === 'shots' ? <>
+        <div className="span-2 sheet-tabs" role="tablist">
+          {sight.map((_, i) => <button type="button" role="tab" key={`s${i}`} aria-selected={sheet === i} className={`sight ${sheet === i ? 'on' : ''}`} onClick={() => setSheet(i)}>
+            <span>Sighting {i + 1}</span><b>{sightInfo[i].count ? `${sightInfo[i].count} shots` : 'Not scored'}</b><small>practice</small></button>)}
+          {sheetInfo.map((s, i) => <button type="button" role="tab" key={i} aria-selected={sheet === S + i} className={`${sheet === S + i ? 'on' : ''} ${s.count === per ? 'done' : ''} ${s.bad ? 'bad' : ''}`} onClick={() => setSheet(S + i)}>
+            <span>Sheet {i + 1}</span><b>{s.count ? fmt(s.total) : '—'}</b><small>{s.count}/{per}</small></button>)}</div>
+        <div className={`span-2 shot-panel ${isSight ? 'sight' : ''}`}>
+          <div className="shot-head"><b>{isSight ? `Sighting sheet ${sheet + 1}` : `Sheet ${k + 1}`}</b>{isSight && <span className="sight-note">Weapon set-up — not counted in the total or the ranking. Entering these shots is optional.</span>}<small>Type each shot (0–{fmt(shotMax)}). It moves to the next box by itself.</small></div>
+          <div className="shot-grid">{curShots.map((v, j) => <label key={`${sheet}-${j}`} className={badShot(v) ? 'bad' : v !== '' ? 'filled' : ''}><span>Shot {j + 1}</span>
+            <input data-shot={j} inputMode="decimal" autoComplete="off" autoFocus={j === 0} value={v} placeholder="–" onChange={(e) => onShotChange(j, e)} onKeyDown={(e) => onShotKey(j, e)} /></label>)}</div>
+          <div className="shot-foot">{isSight ? <><span>Not counted</span><small>Sighting shots never change the score.</small></> : <><span>Sheet {k + 1} total</span><b>{sheetInfo[k].bad ? '—' : fmt(sheetInfo[k].total)}</b><small>/ {fmt(perSheetMax)} · {sheetInfo[k].count} of {per} shots</small></>}
+            <div className="shot-nav"><button type="button" className="secondary small" disabled={sheet === 0} onClick={() => setSheet(sheet - 1)}>← Prev</button><button type="button" className="secondary small" disabled={sheet === S + n - 1} onClick={() => setSheet(sheet + 1)}>Next →</button></div></div>
+        </div>
+      </> : <div className="span-2 sheet-grid">
+        {totals.map((v, i) => <label key={i}>Sheet {i + 1}<input type="number" step="0.1" min="0" max={perSheetMax} inputMode="decimal" value={v} onChange={(e) => setTotals(totals.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`0–${fmt(perSheetMax)}`} /></label>)}
+      </div>}
+
+      <div className="span-2 sheet-total"><span>Match total ({entered.length} of {n} sheets{mode === 'shots' ? ` · ${shotsDone}/${n * per} shots` : ''})</span><b>{anyBad ? '—' : fmt(total)}</b><small>out of {fmt(match.max_score)}</small></div>
+      {mode === 'totals' && hasShots && <small className="span-2" style={{ color: '#a4433d' }}>Saving in “Sheet totals only” removes this shooter’s shot-by-shot details.</small>}
+      <label>Inner tens (tie-breaker)<input type="number" step="1" min="0" value={inner} onChange={(e) => setInner(e.target.value)} /></label>
+      <label>Note (optional)<input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Qualified for final" /></label>
+      {error && <p className="error span-2" style={{ color: '#a4433d', fontSize: 12, margin: 0 }}>{error}</p>}
+      <div className="modal-actions span-2"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy ? 'Saving…' : 'Save score'}</button></div>
+    </form>
+  </div></div>;
+}
+
+export const ALL_LANES = Array.from({ length: 10 }, (_, i) => i + 1);
+const maxFor = (sheets, per, fallback) => (Number(sheets) > 0 && Number(per) > 0 ? String(Math.round(Number(sheets) * Number(per) * 10.9 * 10) / 10) : fallback);
+
+function MatchModal({ match, onClose, onDone }) {
+  const [form, setForm] = useState({
+    name: match?.name || '', discipline: match?.discipline || '10m Air Rifle', match_date: match?.match_date || todayStr(),
+    venue: match?.venue || 'AADI Rifle Shooting Academy, Yelahanka', description: match?.description || '',
+    sheets: String(match?.sheets ?? 6), shots_per_sheet: String(match?.shots_per_sheet ?? 10), max_score: String(Number(match?.max_score ?? 654)), relays: String(match?.relays ?? 1), sighting_sheets: String(match?.sighting_sheets ?? 2),
+  });
+  const [lanes, setLanes] = useState(() => match?.lanes?.length ? match.lanes : ALL_LANES);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  async function submit(e) {
+    e.preventDefault(); setError('');
+    if (!form.name.trim()) { setError('Give the match a name.'); return; }
+    if (!(Number(form.sheets) > 0) || !(Number(form.shots_per_sheet) > 0) || !(Number(form.max_score) > 0)) { setError('Sheets, shots per sheet and maximum score must be greater than 0.'); return; }
+    if (lanes.length === 0) { setError('Select at least one lane for this match.'); return; }
+    setBusy(true);
+    const row = { name: form.name.trim(), discipline: form.discipline, match_date: form.match_date, venue: form.venue.trim() || null, description: form.description.trim() || null, sheets: Number(form.sheets), shots_per_sheet: Number(form.shots_per_sheet), shots: Number(form.sheets) * Number(form.shots_per_sheet), max_score: Number(form.max_score), relays: Math.max(1, Number(form.relays) || 1), sighting_sheets: Math.min(5, Math.max(0, parseInt(form.sighting_sheets, 10) || 0)), lanes: [...lanes].sort((a, b) => a - b) };
+    const { error } = match ? await supabase.from('matches').update(row).eq('id', match.id) : await supabase.from('matches').insert(row);
+    setBusy(false);
+    if (error) setError(error.message); else onDone(match ? 'Match updated.' : 'Match created. Shooters have been notified and can register now.');
+  }
+
+  return <div className="modal-backdrop"><div className="modal">
+    <div className="modal-head"><div><h2>{match ? 'Edit match' : 'Organise a match'}</h2><p className="muted">{match ? 'Update the match details.' : 'Shooters are notified and can register as soon as you save.'}</p></div><button className="icon-btn" onClick={onClose}><X /></button></div>
+    <form onSubmit={submit} className="form-grid">
+      <label className="span-2">Match name *<input required value={form.name} onChange={set('name')} placeholder="e.g. Academy Open 2026" /></label>
+      <label>Date<input type="date" required value={form.match_date} onChange={set('match_date')} /></label>
+      <label>Discipline<select value={form.discipline} onChange={set('discipline')}><option>10m Air Rifle</option><option>10m Air Pistol</option><option>50m Rifle</option><option>Other</option></select></label>
+      <label className="span-2">Venue<input value={form.venue} onChange={set('venue')} /></label>
+      <label>Number of sheets<input type="number" min="1" max="12" required value={form.sheets} onChange={(e) => setForm({ ...form, sheets: e.target.value, max_score: maxFor(e.target.value, form.shots_per_sheet, form.max_score) })} /></label>
+      <label>Shots per sheet<input type="number" min="1" required value={form.shots_per_sheet} onChange={(e) => setForm({ ...form, shots_per_sheet: e.target.value, max_score: maxFor(form.sheets, e.target.value, form.max_score) })} /></label>
+      <label className="span-2">Maximum score (10.9 per shot)<input type="number" min="1" step="0.1" required value={form.max_score} onChange={set('max_score')} />
+        <small style={{ color: '#8792a4' }}>{Number(form.sheets) * Number(form.shots_per_sheet) || 0} shots in total. Admin enters one score per sheet; the total is calculated automatically.</small></label>
+      <div className="span-2 lane-picker"><span className="lane-picker-head"><b>Lanes used for this match</b><small>{lanes.length} of {ALL_LANES.length} selected</small>
+        <button type="button" className="link-button" onClick={() => setLanes(lanes.length === ALL_LANES.length ? [] : ALL_LANES)}>{lanes.length === ALL_LANES.length ? 'Clear all' : 'Select all'}</button></span>
+        <div className="lane-chips">{ALL_LANES.map((n) => <button type="button" key={n} className={`lane-chip ${lanes.includes(n) ? 'on' : ''}`} aria-pressed={lanes.includes(n)} onClick={() => setLanes(lanes.includes(n) ? lanes.filter((x) => x !== n) : [...lanes, n])}>{n}</button>)}</div></div>
+      <label>Sighting sheets (not scored)<input type="number" min="0" max="5" value={form.sighting_sheets} onChange={set('sighting_sheets')} /><small style={{ color: '#8792a4' }}>Given first to set up the weapon. They never count in the total or the ranking.</small></label>
+      <label>Number of relays<input type="number" min="1" max="20" required value={form.relays} onChange={set('relays')} /><small style={{ color: '#8792a4' }}>Use more than 1 when shooters outnumber lanes — each relay shoots in turn.</small></label>
+      <div className="lane-summary"><small>Per relay</small><b>{lanes.length} shooters</b><small>{Number(form.sighting_sheets) || 0} sighting + {Number(form.sheets) || 0} scored series × {Number(form.shots_per_sheet) || 0} shots</small></div>
+      <label className="span-2">Details (optional)<input value={form.description} onChange={set('description')} placeholder="Reporting time, rules, entry notes…" /></label>
+      {error && <p className="error span-2" style={{ color: '#a4433d', fontSize: 12, margin: 0 }}>{error}</p>}
+      <div className="modal-actions span-2"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button className="primary" disabled={busy}>{busy ? 'Saving…' : match ? 'Save changes' : 'Create match'}</button></div>
+    </form>
+  </div></div>;
+}
+
+// ---- Lane plan: admin decides lanes, relays, shooters and target-sheet numbers ----------------------
+function LanePlan({ match, regs, shooters, onChanged, setError, setNotice }) {
+  const lanes = (match.lanes && match.lanes.length ? match.lanes : ALL_LANES).slice().sort((a, b) => a - b);
+  const series = match.sheets || 1;
+  const sight = match.sighting_sheets || 0;
+  const issued = sight + series; // every physical target sheet handed out
+  const sheetLabel = (i) => (i < sight ? `Sight ${i + 1}` : `S${i - sight + 1}`);
+  const relayCount = match.relays || 1;
+  const [relay, setRelay] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [startNo, setStartNo] = useState('1');
+  const nameOf = (r) => r.shooters?.full_name || 'Shooter';
+  const inRelay = regs.filter((r) => r.lane_no && (r.relay || 1) === relay);
+  const byLane = new Map(inRelay.map((r) => [String(r.lane_no), r]));
+  const unassigned = regs.filter((r) => !r.lane_no);
+  const assignedCount = regs.filter((r) => r.lane_no).length;
+  const totalShots = series * (match.shots_per_sheet || 0);
+
+  async function run(fn, okText) {
+    setBusy(true); setError('');
+    const res = await fn();
+    setBusy(false);
+    if (res?.error) setError(res.error.message); else { if (okText) setNotice(okText); onChanged(); }
+  }
+  const patchReg = (id, patch) => supabase.from('match_registrations').update(patch).eq('id', id);
+  const assign = (lane, regId) => run(() => patchReg(regId, { lane_no: String(lane), relay }));
+  const unassign = (r) => run(() => patchReg(r.id, { lane_no: null, sheet_targets: null }));
+  async function saveTargets(r, idx, value) {
+    const arr = Array.from({ length: issued }, (_, i) => (r.sheet_targets && r.sheet_targets[i]) || '');
+    if (arr[idx] === value.trim()) return;
+    arr[idx] = value.trim();
+    await run(() => patchReg(r.id, { sheet_targets: arr.some(Boolean) ? arr : null }));
+  }
+  async function autoAssign() {
+    const start = Math.max(1, parseInt(startNo, 10) || 1);
+    const pending = unassigned.slice().sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    if (!pending.length) { setNotice('Every registered shooter already has a lane.'); return; }
+    // fill relay by relay, lane by lane, using only free lanes
+    const plan = [];
+    let queue = [...pending];
+    for (let rl = 1; rl <= relayCount && queue.length; rl++) {
+      const taken = new Set(regs.filter((r) => r.lane_no && (r.relay || 1) === rl).map((r) => String(r.lane_no)));
+      for (const ln of lanes) { if (!queue.length) break; if (!taken.has(String(ln))) plan.push({ r: queue.shift(), ln, rl }); }
+    }
+    if (queue.length) setError(`${queue.length} shooter(s) did not fit — add another relay or more lanes in “Edit match”.`);
+    await run(async () => {
+      let next = start;
+      for (const { r, ln, rl } of plan) {
+        const targets = Array.from({ length: issued }, () => String(next++));
+        const { error } = await patchReg(r.id, { lane_no: String(ln), relay: rl, sheet_targets: targets });
+        if (error) return { error };
+      }
+      return {};
+    }, `${plan.length} shooter(s) assigned lanes and target sheets.`);
+  }
+  async function numberTargets() {
+    const start = Math.max(1, parseInt(startNo, 10) || 1);
+    const rows = regs.filter((r) => r.lane_no).sort((a, b) => (a.relay || 1) - (b.relay || 1) || Number(a.lane_no) - Number(b.lane_no));
+    await run(async () => {
+      let next = start;
+      for (const r of rows) { const { error } = await patchReg(r.id, { sheet_targets: Array.from({ length: issued }, () => String(next++)) }); if (error) return { error }; }
+      return {};
+    }, `Target sheets numbered from ${start} (${rows.length * issued} sheets).`);
+  }
+  async function clearRelay() {
+    if (!inRelay.length || !window.confirm(`Clear all lane assignments in Relay ${relay}?`)) return;
+    await run(async () => { for (const r of inRelay) { const { error } = await patchReg(r.id, { lane_no: null, sheet_targets: null }); if (error) return { error }; } return {}; }, `Relay ${relay} cleared.`);
+  }
+  async function setRelays(n) {
+    if (n < 1 || n > 20) return;
+    if (n < relayCount && regs.some((r) => r.lane_no && (r.relay || 1) > n)) { setError('Clear the lanes of the last relay before removing it.'); return; }
+    const { error } = await supabase.from('matches').update({ relays: n }).eq('id', match.id);
+    if (error) setError(error.message); else { if (relay > n) setRelay(n); onChanged(); }
+  }
+  async function togglePublish() {
+    if (!match.lanes_published && assignedCount === 0) { setError('Assign at least one shooter to a lane first.'); return; }
+    await run(() => supabase.from('matches').update({ lanes_published: !match.lanes_published }).eq('id', match.id),
+      match.lanes_published ? 'Lane plan hidden from shooters.' : 'Lane plan published — shooters have been notified.');
+  }
+  function printPlan() {
+    const rows = regs.filter((r) => r.lane_no).sort((a, b) => (a.relay || 1) - (b.relay || 1) || Number(a.lane_no) - Number(b.lane_no));
+    const esc = (t) => String(t ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const head = Array.from({ length: issued }, (_, i) => `<th>${i < sight ? 'Sighting ' + (i + 1) : 'Series ' + (i - sight + 1)}<br><small>${i < sight ? 'not scored' : match.shots_per_sheet + ' shots'}</small></th>`).join('');
+    const body = rows.map((r) => `<tr><td>${r.relay || 1}</td><td><b>${esc(r.lane_no)}</b></td><td>${esc(nameOf(r))}</td>${Array.from({ length: issued }, (_, i) => `<td>${esc(r.sheet_targets?.[i] || '')}</td>`).join('')}<td class="sign"></td></tr>`).join('');
+    const w = window.open('', '_blank');
+    if (!w) { setError('Allow pop-ups to print the lane sheet.'); return; }
+    w.document.write(`<!doctype html><title>${esc(match.name)} – lane plan</title><style>body{font:14px Arial,sans-serif;padding:24px;color:#172238}h1{margin:0 0 4px}p{margin:0 0 16px;color:#566}table{border-collapse:collapse;width:100%}th,td{border:1px solid #bbb;padding:8px;text-align:center}td:nth-child(3){text-align:left}.sign{width:90px}small{font-weight:400}</style><h1>${esc(match.name)}</h1><p>${esc(fmtDay(match.match_date))} · ${esc(match.discipline)} · ${series} series × ${match.shots_per_sheet} shots = ${totalShots} shots</p><table><thead><tr><th>Relay</th><th>Lane</th><th>Shooter</th>${head}<th>Sign</th></tr></thead><tbody>${body}</tbody></table><script>window.onload=()=>window.print()<\/script>`);
+    w.document.close();
+  }
+
+  return <section className="panel lane-plan">
+    <div className="panel-heading">
+      <div><h2>Lane plan <span className={`badge ${match.lanes_published ? 'green' : 'amber'}`} style={{ verticalAlign: 'middle' }}>{match.lanes_published ? 'Published' : 'Draft'}</span></h2>
+        <p className="muted">{lanes.length} lanes · {sight > 0 ? `${sight} sighting (not scored) + ` : ''}{series} scored series × {match.shots_per_sheet} shots = {totalShots} scored shots · {assignedCount}/{regs.length} shooters assigned</p></div>
+      <div className="row-actions">
+        <button className="secondary" onClick={printPlan} disabled={!assignedCount}><Printer size={15} /> Print</button>
+        <button className={match.lanes_published ? 'secondary' : 'primary'} onClick={togglePublish} disabled={busy}>{match.lanes_published ? <><EyeOff size={15} /> Unpublish</> : <><Send size={15} /> Publish to shooters</>}</button>
+      </div>
+    </div>
+
+    <div className="lane-toolbar">
+      <div className="relay-tabs" role="tablist">{Array.from({ length: relayCount }, (_, i) => i + 1).map((n) => <button key={n} role="tab" aria-selected={relay === n} className={relay === n ? 'on' : ''} onClick={() => setRelay(n)}>Relay {n}<small>{regs.filter((r) => r.lane_no && (r.relay || 1) === n).length}/{lanes.length}</small></button>)}
+        <button className="relay-step" title="Add relay" onClick={() => setRelays(relayCount + 1)}><Plus size={14} /></button>
+        {relayCount > 1 && <button className="relay-step" title="Remove last relay" onClick={() => setRelays(relayCount - 1)}><Minus size={14} /></button>}</div>
+      <div className="lane-auto"><label>First target no.<input type="number" min="1" value={startNo} onChange={(e) => setStartNo(e.target.value)} /></label>
+        <button className="secondary" onClick={autoAssign} disabled={busy || !unassigned.length}><Wand2 size={14} /> Auto-assign {unassigned.length || ''}</button>
+        <button className="secondary" onClick={numberTargets} disabled={busy || !assignedCount} title="Re-number all target sheets in lane order">Number targets</button>
+        <button className="small-outline no" onClick={clearRelay} disabled={busy || !inRelay.length}>Clear relay</button></div>
+    </div>
+
+    {regs.length === 0 ? <div className="empty-inline"><Users /><p>No registered shooters yet.</p><span>Once shooters register you can place them on lanes here.</span></div> :
+      <div className="lane-grid">{lanes.map((ln) => {
+        const r = byLane.get(String(ln));
+        return <div key={ln} className={`lane-card ${r ? 'filled' : ''}`}>
+          <div className="lane-no"><span>Lane</span><b>{ln}</b></div>
+          {r ? <>
+            <div className="lane-who"><b>{nameOf(r)}</b><small>{r.shooters?.shooter_code}</small><button className="icon-btn lane-x" title="Free this lane" onClick={() => unassign(r)} disabled={busy}><X size={14} /></button></div>
+            <div className="lane-targets"><small>Target sheet no. · {match.shots_per_sheet} shots each</small>
+              <div>{Array.from({ length: issued }, (_, i) => <label key={`${r.id}-${i}-${r.sheet_targets?.[i] || ''}`} className={i < sight ? 'sighting' : ''}><span>{sheetLabel(i)}</span><input defaultValue={r.sheet_targets?.[i] || ''} placeholder="No." inputMode="numeric" onBlur={(e) => saveTargets(r, i, e.target.value)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} /></label>)}</div></div>
+          </> : <select className="lane-pick" value="" disabled={busy || !unassigned.length} onChange={(e) => e.target.value && assign(ln, e.target.value)}>
+            <option value="">{unassigned.length ? '+ Assign shooter' : 'No shooters left'}</option>
+            {unassigned.map((u) => <option key={u.id} value={u.id}>{nameOf(u)} ({u.shooters?.shooter_code})</option>)}</select>}
+        </div>;
+      })}</div>}
+    {regs.length > 0 && unassigned.length > 0 && <p className="muted lane-note">{unassigned.length} registered shooter(s) still need a lane: {unassigned.map(nameOf).join(', ')}.</p>}
+  </section>;
+}

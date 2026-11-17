@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Bell, CalendarCheck, CheckCircle2, Info, LogOut, QrCode, Target, Wallet, LayoutGrid, Volume2, UserMinus, Clock3, ShieldCheck, VolumeX, Phone, HeartHandshake, ChevronRight, X } from 'lucide-react';
+import { AlertTriangle, Bell, Trophy, CalendarCheck, CheckCircle2, Info, LogOut, QrCode, Target, Wallet, LayoutGrid, UserMinus, Clock3, ShieldCheck, Phone, HeartHandshake, ChevronRight, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { supabase } from '../lib/supabase';
 import { attendanceStats, buildInsights, scorePct, sortScores, summarizeScores } from '../lib/insights';
 import { METHODS, daysUntil, duration, feeState, fmtDay, fmtTime, inr } from '../lib/format';
 import './portal.css';
 import Notifications from './Notifications';
-import PushToggle from '../components/PushToggle';
+import AlertsToggle from '../components/AlertsToggle';
+import MemberMatches from './MemberMatches';
 import { playNotificationSound, showBrowserNotification, unlockNotificationAudio } from '../lib/notificationUtils';
 
-const TABS = [['overview', 'Overview', LayoutGrid], ['attendance', 'Attendance', CalendarCheck], ['scores', 'Scores', Target], ['fees', 'Fees', Wallet], ['notifications', 'Notifications', Bell], ['qr', 'My QR', QrCode]];
-const SHORT = { overview: 'Home', attendance: 'Visits', scores: 'Scores', fees: 'Fees', notifications: 'Alerts', qr: 'My QR' };
+const TABS = [['overview', 'Overview', LayoutGrid], ['attendance', 'Attendance', CalendarCheck], ['scores', 'Scores', Target], ['matches', 'Matches', Trophy], ['fees', 'Fees', Wallet], ['notifications', 'Notifications', Bell], ['qr', 'My QR', QrCode]];
+const SHORT = { overview: 'Home', attendance: 'Visits', scores: 'Scores', matches: 'Matches', fees: 'Fees', notifications: 'Alerts', qr: 'My QR' };
 const pct = (n) => `${(Math.round(n * 10) / 10).toFixed(1)}%`;
 const TIP_ICON = { improve: AlertTriangle, good: CheckCircle2, info: Info };
 
@@ -38,9 +39,30 @@ function Empty({ icon: Icon, children }) {
   return <div className="sp-empty"><span className="sp-ico"><Icon /></span><p>{children}</p></div>;
 }
 
+function QrPass({ shooter, qrImage, qrBusy, onShow, onNew }) {
+  return <div className="qr-pass">
+    <div className="qr-pass-top"><span className="qr-pass-logo"><img src="/aadi-logo.png" alt="AADI" /></span><span className="qr-pass-tag"><i />Check-in pass</span></div>
+    <div className="qr-pass-body">
+      {qrImage ? <div className="qr-frame"><img src={qrImage} alt="Your check-in QR code" /><i className="c tl" /><i className="c tr" /><i className="c bl" /><i className="c br" /></div>
+        : <button type="button" className="qr-frame qr-empty" disabled={qrBusy} onClick={onShow}><QrCode size={46} /><span>{qrBusy ? 'Preparing…' : 'Tap to show QR'}</span></button>}
+      <p className="qr-pass-name">{shooter.full_name}</p>
+      <p className="qr-pass-id">{shooter.shooter_code}</p>
+    </div>
+    <ol className="qr-steps">
+      <li><b>1</b><span>Raise your screen brightness</span></li>
+      <li><b>2</b><span>Hold the QR 15–20 cm from the scanner</span></li>
+      <li><b>3</b><span>Wait for the beep — you’re checked in</span></li>
+    </ol>
+    {qrImage && <div className="qr-actions">
+      <a className="sp-btn ghost" href={qrImage} download={`AADI-${shooter.shooter_code}-QR.png`}>Save image</a>
+      <button type="button" className="sp-btn ghost" disabled={qrBusy} onClick={onNew}>Issue new QR</button>
+    </div>}
+    <p className="sp-note">Keep your QR private. If you lose your phone, issue a new one and the old one stops working.</p>
+  </div>;
+}
+
 export default function MemberHome({ shooter, session, onLogout }) {
   const [tab, setTab] = useState('overview');
-  const [soundOn, setSoundOn] = useState(() => { try { return localStorage.getItem('aadi_notification_sound') === 'on'; } catch (_) { return false; } });
   const [attendance, setAttendance] = useState([]);
   const [scores, setScores] = useState([]);
   const [fees, setFees] = useState([]);
@@ -48,6 +70,7 @@ export default function MemberHome({ shooter, session, onLogout }) {
   const [error, setError] = useState('');
   const [qrImage, setQrImage] = useState('');
   const [qrBusy, setQrBusy] = useState(false);
+  const [qrModal, setQrModal] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [exitRequest, setExitRequest] = useState(null);
   const [showExitRequest, setShowExitRequest] = useState(false);
@@ -169,6 +192,33 @@ export default function MemberHome({ shooter, session, onLogout }) {
   const unpaidTotal = unpaid.reduce((t, f) => t + Number(f.amount), 0);
   const improve = insights.filter((i) => i.tone === 'improve');
 
+  // Show the QR already saved on this device on the welcome card. Never issues a new one by itself.
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem('aadi_qr_' + session.user.id);
+        if (!token) return;
+        const { data } = await supabase.rpc('my_qr_is_valid', { p_token: token });
+        if (data) setQrImage(await QRCode.toDataURL(token, { width: 420, margin: 2, errorCorrectionLevel: 'H' }));
+      } catch (_) {}
+    })();
+  }, [session.user.id]);
+  useEffect(() => {
+    if (!qrModal) return;
+    const onKey = (e) => { if (e.key === 'Escape') setQrModal(false); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow; document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+  }, [qrModal]);
+  useEffect(() => { // keep the screen awake while the QR is on screen (best effort)
+    if (!(qrModal || tab === 'qr') || !('wakeLock' in navigator)) return;
+    let lock = null, off = false;
+    navigator.wakeLock.request('screen').then((l) => { if (off) l.release(); else lock = l; }).catch(() => {});
+    return () => { off = true; lock?.release?.().catch?.(() => {}); };
+  }, [qrModal, tab]);
+  const issueNewQr = () => { if (window.confirm('Issue a new QR? Your current QR will stop working.')) showQr(true); };
+  function openQr() { setQrModal(true); if (!qrImage && !qrBusy) showQr(false); }
+
   async function showQr(regenerate = false) {
     setError(''); setQrBusy(true);
     try {
@@ -207,11 +257,16 @@ export default function MemberHome({ shooter, session, onLogout }) {
   return <div className="sp-page">
     <header className="sp-top"><div className="sp-wrap">
       <div className="sp-brand"><span className="sp-logo"><img src="/aadi-logo.png" alt="AADI Rifle Shooting Academy" /></span></div>
-      <button className="sp-signout" onClick={onLogout} title={session.user.email}><LogOut size={15} /><span>Sign out</span></button>
+      <div className="sp-top-actions"><button type="button" className="sp-top-qr" onClick={openQr} aria-label="Show my check-in QR"><QrCode size={18} /><span>My QR</span></button>
+      <button className="sp-signout" onClick={onLogout} title={session.user.email}><LogOut size={15} /><span>Sign out</span></button></div>
     </div></header>
 
     <div className="sp-wrap">
       <section className="sp-card">
+        <button type="button" className="sp-card-qr" onClick={openQr} aria-label="Show my QR code for check-in">
+          {qrImage ? <img src={qrImage} alt="" /> : <span className="qr-ph"><QrCode size={40} /></span>}
+          <span>My QR</span>
+        </button>
         <p className="sp-hello">Welcome back,</p>
         <h1 className="sp-name">{shooter.full_name}</h1>
         <div className="sp-card-row">
@@ -219,18 +274,18 @@ export default function MemberHome({ shooter, session, onLogout }) {
           <div className="sp-field"><small>Discipline</small><b>{shooter.discipline}</b></div>
           <span className="sp-pill ok"><i />Active member</span>
         </div>
+        <button type="button" className="sp-card-scan" onClick={openQr}>
+          <span className="scan-ico">{qrImage ? <img src={qrImage} alt="" /> : <QrCode size={26} />}</span>
+          <span className="scan-text"><b>Show check-in QR</b><small>Tap, then hold near the scanner</small></span><ChevronRight size={20} />
+        </button>
       </section>
 
       {error && <p className="sp-error">{error}</p>}
 
       <nav className="sp-tabs six" aria-label="Sections">
-        {TABS.map(([k, label, Icon]) => <button key={k} className={tab === k ? 'active' : ''} onClick={(e) => { setTab(k); e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }} aria-current={tab === k ? 'page' : undefined}><Icon size={22} /><span className="lbl-full">{label}</span><span className="lbl-short">{SHORT[k]}</span>{k === 'notifications' && unreadNotifications > 0 && <span className="sp-tab-count" aria-label={`${unreadNotifications} unread notifications`}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>)}
+        {TABS.map(([k, label, Icon]) => <button key={k} data-tab={k} className={tab === k ? 'active' : ''} onClick={(e) => { setTab(k); e.currentTarget.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); }} aria-current={tab === k ? 'page' : undefined}><Icon size={22} /><span className="lbl-full">{label}</span><span className="lbl-short">{SHORT[k]}</span>{k === 'notifications' && unreadNotifications > 0 && <span className="sp-tab-count" aria-label={`${unreadNotifications} unread notifications`}>{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>)}
       </nav>
-      <div className="sp-sound">
-        <span className="sp-sound-text">{soundOn ? <Volume2 size={18} /> : <VolumeX size={18} />} Play a sound when new notifications arrive</span>
-        <button className={`sp-sound-btn ${soundOn ? 'on' : ''}`} type="button" aria-pressed={soundOn} onClick={async () => { if (soundOn) { localStorage.setItem('aadi_notification_sound', 'off'); setSoundOn(false); } else { await unlockNotificationAudio(); localStorage.setItem('aadi_notification_sound', 'on'); setSoundOn(true); playNotificationSound(); } }}>{soundOn ? 'Sound on' : 'Turn on sound'}</button>
-      </div>
-      <PushToggle variant="card" />
+      <AlertsToggle variant="card" />
 
       {loading ? <div className="sp-panel"><p className="sp-sub">Loading your progress…</p></div> : <>
 
@@ -341,6 +396,8 @@ export default function MemberHome({ shooter, session, onLogout }) {
 
       {tab === 'notifications' && <section className="sp-panel"><Notifications compact shooterId={shooter.id} onUnreadChange={setUnreadNotifications} /></section>}
 
+      {tab === 'matches' && <MemberMatches shooter={shooter} />}
+
       {tab === 'fees' && <section className="sp-panel">
         <h2>My fees</h2>
         <p className="sp-sub">Fees are paid at the academy (cash or UPI). We email you a reminder before the due date and a confirmation once your payment is recorded.</p>
@@ -357,17 +414,7 @@ export default function MemberHome({ shooter, session, onLogout }) {
           </li>)}</ul>}
       </section>}
 
-      {tab === 'qr' && <section className="sp-panel sp-center">
-        <span className="sp-ico"><QrCode /></span>
-        <h2>My QR card</h2>
-        <p className="sp-sub">Show this at the front desk to check in and collect a rifle.</p>
-        {qrImage ? <>
-          <div className="sp-qr-box"><img src={qrImage} alt="Your QR card" /></div>
-          <p className="sp-qr-name">{shooter.full_name}</p><p className="sp-qr-code">{shooter.shooter_code}</p>
-          <div className="sp-actions"><button className="sp-btn ghost" disabled={qrBusy} onClick={() => { if (window.confirm('Issue a new QR? Your current QR will stop working.')) showQr(true); }}>Issue new QR</button></div>
-        </> : <div className="sp-actions"><button className="sp-btn primary" disabled={qrBusy} onClick={() => showQr(false)}>{qrBusy ? 'Please wait…' : 'Show my QR card'}</button></div>}
-        <p className="sp-note">Keep your QR private. If you lose your phone or think someone has it, issue a new one and the old one stops working.</p>
-      </section>}
+      {tab === 'qr' && <section className="sp-panel sp-center"><QrPass shooter={shooter} qrImage={qrImage} qrBusy={qrBusy} onShow={() => showQr(false)} onNew={issueNewQr} /></section>}
       </>}
       {!loading && tab === 'overview' && <section className="sp-panel sp-guide">
         <h2>How to use this page</h2>
@@ -385,6 +432,10 @@ export default function MemberHome({ shooter, session, onLogout }) {
         <div><b>Need help? We are happy to assist.</b><span>Parents and students can call the academy anytime during training hours.</span></div>
         <a className="sp-btn primary" href="tel:9591123300"><Phone size={18} /> Call 95911 23300</a>
       </section>
+    {qrModal && <div className="sp-modal-backdrop" onClick={() => setQrModal(false)}><div className="sp-modal sp-qr-modal" role="dialog" aria-modal="true" aria-label="My QR card" onClick={(e) => e.stopPropagation()}>
+      <button className="sp-icon-btn qr-modal-x" type="button" aria-label="Close" onClick={() => setQrModal(false)}>×</button>
+      <QrPass shooter={shooter} qrImage={qrImage} qrBusy={qrBusy} onShow={() => showQr(false)} onNew={issueNewQr} />
+    </div></div>}
       {showExitRequest && <div className="sp-modal-backdrop" onClick={() => !exitBusy && setShowExitRequest(false)}><div className="sp-modal sp-leave-modal" role="dialog" aria-modal="true" aria-labelledby="leave-title" onClick={e => e.stopPropagation()}>
         <div className="sp-modal-head">
           <span className="sp-leave-icon" aria-hidden="true"><UserMinus size={22}/></span>
