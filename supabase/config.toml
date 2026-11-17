@@ -2,3 +2,7 @@
 # so the gateway must not reject the browser's CORS preflight request, which carries no token.
 [functions.fee-mail]
 verify_jwt = false
+
+# push-notify is called by a database trigger and checks its own x-webhook-secret header.
+[functions.push-notify]
+verify_jwt = false
