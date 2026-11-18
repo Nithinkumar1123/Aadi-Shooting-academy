@@ -52,7 +52,7 @@ export default function MemberMatches({ shooter }) {
     await loadPositions(list, regs);
     const pub = list.filter((x) => regs.has(x.id) && x.status === 'completed' && x.results_published);
     const full = await Promise.all(pub.map(async (x) => [x.id, (await supabase.rpc('match_full_results', { p_match_id: x.id })).data]));
-    setResults(Object.fromEntries(full.filter(([, d]) => d?.available).map(([id, d]) => [id, d.rows])));
+    setResults(Object.fromEntries(full.filter(([, d]) => d?.available).map(([id, d]) => [id, d])));
     setLoading(false);
   }, [shooter.id, loadPositions]);
 
@@ -96,11 +96,12 @@ export default function MemberMatches({ shooter }) {
             <span><Target size={15} /> {m.discipline} · {m.sheets} sheets × {m.shots_per_sheet} shots{m.sighting_sheets > 0 ? ` + ${m.sighting_sheets} sighting (not scored)` : ''}</span>
             {m.venue && <span><MapPin size={15} /> {m.venue}</span>}
             <span><Users size={15} /> {counts[m.id] ?? 0} registered</span>
+            <span className="mm-format">{m.format === 'team' ? `Team match · ${m.team_size} per team` : 'Single-player match'}</span>
           </div>
           {m.description && <p className="sp-sub" style={{ marginTop: 10 }}>{m.description}</p>}
 
           {registered && pos && <div className={`mm-position ${flash === m.id ? 'flash' : ''}`}>
-            <span className="mm-live"><i /> Live</span>
+            <span className={`mm-live ${m.status === 'completed' ? 'final' : ''}`}>{m.status === 'completed' ? 'Final' : <><i /> Live</>}</span>
             <div className="mm-tiles">
               <div className="mm-rank"><small>YOUR POSITION</small>
                 {pos.visible && pos.rank ? <><b>{ordinal(Number(pos.rank))}</b><span>of {pos.total} scored</span></>
@@ -111,19 +112,21 @@ export default function MemberMatches({ shooter }) {
                 {pos.score !== null && pos.score !== undefined ? <><b>{fmt(pos.score)}</b><span>out of {fmt(pos.max_score)}{pos.inner_tens ? ` · ${pos.inner_tens} inner tens` : ''}</span></> : <><b className="dim">—</b><span>Waiting for your score</span></>}
               </div>
             </div>
+            {pos.team_name && <div className="mm-teambox"><small>YOUR TEAM</small><b>{pos.team_name}</b>{pos.teammates?.length > 0 && <span>with {pos.teammates.join(', ')}</span>}</div>}
+            {m.format === 'team' && !pos.team_name && <div className="mm-teambox pending"><small>TEAM</small><span>The academy will place you in a team before the match.</span></div>}
             {pos.lane_no && <div className="mm-lanebox">
               <div><small>LANE</small><b>{pos.lane_no}</b></div>
               {m.relays > 1 && pos.relay && <div><small>RELAY</small><b>{pos.relay}</b></div>}
-              {pos.sheet_targets?.some(Boolean) && <div><small>TARGET SHEETS · {pos.shots_per_sheet} shots each</small>
-                <div className="mm-targets">{pos.sheet_targets.map((t, i) => { const sg = pos.sighting_sheets || 0; return t ? <span key={i} className={i < sg ? 'sighting' : ''}><em>{i < sg ? `Sighting ${i + 1}` : `S${i - sg + 1}`}</em>{t}</span> : null; })}</div>
-                {(pos.sighting_sheets || 0) > 0 && <small className="mm-sight-note">The first {pos.sighting_sheets} sheet{pos.sighting_sheets > 1 ? 's are' : ' is'} for setting up your weapon and do not count.</small>}</div>}
+              {(pos.sighting_sheets || 0) > 0 && pos.sheet_targets?.slice(0, pos.sighting_sheets).some(Boolean) && <div><small>SIGHTING SHEETS · not scored</small>
+                <div className="mm-targets">{pos.sheet_targets.slice(0, pos.sighting_sheets).map((t, i) => t ? <span key={i} className="sighting">{t}</span> : null)}</div>
+                <small className="mm-sight-note">Use these to set up your weapon. They do not count.</small></div>}
             </div>}
             {pos.sheets > 0 && <div className="mm-sheets">
               <small>SCORE PER SHEET · {pos.shots_per_sheet} shots each{pos.shot_scores ? ' · tap a sheet for shot-by-shot' : ''}</small>
               <div className="mm-sheet-row">{Array.from({ length: pos.sheets }, (_, i) => { const v = pos.sheet_scores?.[i]; const has = v !== null && v !== undefined; const canOpen = has && pos.shot_scores?.[i]?.some((x) => x !== null); const sel = openSheet[m.id] === i;
-                return <button type="button" key={i} disabled={!canOpen} onClick={() => setOpenSheet((o) => ({ ...o, [m.id]: sel ? null : i }))} className={`mm-sheet ${has ? '' : 'empty'} ${sel ? 'sel' : ''}`}><span>Sheet {i + 1}</span><b>{has ? fmt(v) : '—'}</b>{pos.sheet_targets?.[i + (pos.sighting_sheets || 0)] && <em>Target {pos.sheet_targets[i + (pos.sighting_sheets || 0)]}</em>}</button>; })}</div>
+                return <button type="button" key={i} disabled={!canOpen} onClick={() => setOpenSheet((o) => ({ ...o, [m.id]: sel ? null : i }))} className={`mm-sheet ${has ? '' : 'empty'} ${sel ? 'sel' : ''}`}><span>{pos.sheet_targets?.[i + (pos.sighting_sheets || 0)] ? `Target ${pos.sheet_targets[i + (pos.sighting_sheets || 0)]}` : `Sheet ${i + 1}`}</span><b>{has ? fmt(v) : '—'}</b></button>; })}</div>
               {openSheet[m.id] !== null && openSheet[m.id] !== undefined && pos.shot_scores?.[openSheet[m.id]] && <div className="mm-shots">
-                <small>SHEET {openSheet[m.id] + 1} · SHOT BY SHOT</small>
+                <small>{pos.sheet_targets?.[openSheet[m.id] + (pos.sighting_sheets || 0)] ? `TARGET ${pos.sheet_targets[openSheet[m.id] + (pos.sighting_sheets || 0)]}` : `SHEET ${openSheet[m.id] + 1}`} · SHOT BY SHOT</small>
                 <div className="mm-shot-row">{Array.from({ length: pos.shots_per_sheet }, (_, j) => { const x = pos.shot_scores[openSheet[m.id]][j]; const has = x !== null && x !== undefined; return <div key={j} className={`mm-shot ${has && Number(x) >= 10 ? 'ten' : ''} ${has ? '' : 'empty'}`}><span>{j + 1}</span><b>{has ? fmt(x) : '–'}</b></div>; })}</div>
               </div>}
             </div>}
@@ -131,7 +134,7 @@ export default function MemberMatches({ shooter }) {
           {registered && pos && !pos.visible && <div className="mm-hidden"><Lock size={16} /><span>Your position is not visible yet. The academy will switch it on — you’ll get a notification. Your own score above updates live.</span></div>}
 
           {results[m.id] && (() => {
-            const rows = results[m.id], me = rows.find((r) => r.is_me), top = rows.filter((r) => r.rank <= 3).slice(0, 3);
+            const rows = results[m.id].rows, teamRows = results[m.id].teams || [], me = rows.find((r) => r.is_me), top = rows.filter((r) => r.rank <= 3).slice(0, 3);
             const order = top.length === 3 ? [top[1], top[0], top[2]] : top; // 2nd · 1st · 3rd
             const open = openResults.has(m.id);
             return <div className="mm-results">
@@ -140,6 +143,8 @@ export default function MemberMatches({ shooter }) {
               <div className="mm-podium">{order.map((r, i) => <div key={i} className={`mm-pod p${r.rank} ${r.is_me ? 'me' : ''}`}>
                 <span className="mm-medal">{r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : '🥉'}</span>
                 <b className="mm-pod-name">{r.name}{r.is_me && <em>You</em>}</b><span className="mm-pod-score">{fmt(r.score)}</span></div>)}</div>
+              {teamRows.length > 0 && <div className="mm-teams-final"><small>TEAM STANDINGS</small>{teamRows.map((t, i) => <div key={i} className={`mm-team-row ${t.is_mine ? 'me' : ''}`}>
+                <span className={`mm-chip c${Math.min(t.rank, 4)}`}>{t.rank}</span><span className="mm-rl-name"><b>{t.name}</b>{t.is_mine && <em>Your team</em>}<small>{(t.members || []).join(' · ')}</small></span><span className="mm-rl-score">{fmt(t.score)}</span></div>)}</div>}
               <button className="sp-btn ghost" type="button" aria-expanded={open} onClick={() => setOpenResults((o) => { const n = new Set(o); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n; })}>
                 {open ? 'Hide full list' : 'See all positions'} <ChevronDown size={16} className={open ? 'flip' : ''} />
               </button>

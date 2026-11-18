@@ -9,7 +9,7 @@ export default function Shooters(){
  const [shooters,setShooters]=useState([]); const [exitRequests,setExitRequests]=useState([]); const [search,setSearch]=useState(''); const [show,setShow]=useState(false); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState(''); const [form,setForm]=useState({full_name:'',phone:'',email:'',date_of_birth:'',guardian_name:'',guardian_phone:'',discipline:'10m Air Rifle',status:'active'}); const [card,setCard]=useState(null); const [view,setView]=useState('active'); const [actionId,setActionId]=useState(null); const [reviewNotes,setReviewNotes]=useState({}); const [record,setRecord]=useState(null); const [recordLoading,setRecordLoading]=useState(false);
  async function load(){
    const [{data,error},{data:reqData,error:reqError}] = await Promise.all([
-     supabase.from('shooters').select('*').order('created_at',{ascending:false}),
+     supabase.from('shooters').select('*').eq('is_guest',false).order('created_at',{ascending:false}),
      supabase.from('shooter_exit_requests').select('*, shooters(full_name, shooter_code, email)').order('requested_at',{ascending:false})
    ]);
    if(error) setError(error.message); else setShooters(data||[]);
