@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Route, Routes, useNavigate, Link, Navigate } from 'react-router-dom';
 import { Activity, Bell, CalendarDays, LayoutDashboard, LogOut, Menu, QrCode, Settings, ShieldCheck, Target, UserCheck, Users, Wallet, ArrowRight, CheckCircle2, MapPin, Phone, Clock3, Trophy, Crosshair, House, BookOpen, MapPinned, Medal, TrendingUp, X, Star, Mail, ChevronDown, ArrowUp, UserPlus, ClipboardCheck, Eye, EyeOff, Lock, ArrowLeft } from 'lucide-react';
-import { supabase, supabaseConfigured } from './lib/supabase';
+import { supabase, supabaseConfigured, setActiveMember } from './lib/supabase';
+import { clearChosenMember } from './lib/family';
 import AlertsToggle from './components/AlertsToggle';
 import { detachPush } from './lib/push';
 import { playNotificationSound, showBrowserNotification, unlockNotificationAudio } from './lib/notificationUtils';
@@ -110,6 +111,7 @@ const FAQ = [
   ['Who can join the academy?', 'AADI welcomes all age groups, from complete beginners to experienced shooters preparing for competition.'],
   ['Do I need any shooting experience?', 'No. Our programs are structured so you start with safety and fundamentals and progress at your own pace.'],
   ['How do I become a member?', 'Create an account on this website and submit your details. The academy reviews your request and confirms your membership.'],
+  ['Can parents and children use the same email?', 'Yes. Create one account with your family email, then add yourself and each child from your dashboard. Everyone keeps their own membership ID, QR pass, scores and fees, and the academy approves each person separately.'],
   ['Which disciplines do you train?', 'We train 10m Air Rifle and 10m Air Pistol, along with competition preparation for shooters who are ready for matches.'],
   ['How do I check schedules and availability?', 'Call us on 95911 23300 or visit the academy at Avalahalli, Yelahanka. The team will share current training timings.'],
 ];
@@ -173,7 +175,7 @@ function LandingPage() {
       <section className="steps-section" id="how-to-join">
         <div className="sec-head"><span className="sec-pill">How to join</span><h2>Start in three simple steps</h2><p>From sign-up to your first session, we keep it clear and easy.</p></div>
         <ol className="steps-grid">
-          <li><span className="step-no">1</span><span className="sec-icon"><UserPlus size={26}/></span><h3>Create your account</h3><p>Register online with your basic details. It takes only a couple of minutes.</p></li>
+          <li><span className="step-no">1</span><span className="sec-icon"><UserPlus size={26}/></span><h3>Create your account</h3><p>Register online with your basic details. Parents can add their children under the same login.</p></li>
           <li><span className="step-no">2</span><span className="sec-icon"><ClipboardCheck size={26}/></span><h3>Get approved</h3><p>The academy reviews your request and confirms your membership.</p></li>
           <li><span className="step-no">3</span><span className="sec-icon"><Target size={26}/></span><h3>Begin training</h3><p>Meet your coaches, learn range safety and start your first session.</p></li>
         </ol>
@@ -280,7 +282,7 @@ function AuthScreen({ initialMode='signin' }) {
           <button type="button" role="tab" aria-selected={signup} className={signup ? 'active' : ''} onClick={() => switchMode('signup')}>Create account</button>
         </div>
         <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
-        <p className="au-sub">{signup ? 'Register as a shooter. Your membership will be reviewed by the academy.' : 'Sign in to continue to your member or staff dashboard.'}</p>
+        <p className="au-sub">{signup ? 'One login for the whole family. Next, add yourself and your children. The academy approves each person separately.' : 'Sign in to continue to your member or staff dashboard.'}</p>
 
         <form onSubmit={submit} noValidate>
           <div className="au-field">
@@ -301,6 +303,7 @@ function AuthScreen({ initialMode='signin' }) {
 
         <p className="au-switch">{signup ? 'Already registered?' : 'New to AADI?'} <button type="button" onClick={() => switchMode(signup ? 'signin' : 'signup')}>{signup ? 'Sign in' : 'Create a shooter account'}</button></p>
         {!signup && <p className="au-hint">New accounts need approval from the academy before full access.</p>}
+        {signup && <p className="au-hint">Registering your children too? Use one family email here. You will add each child on the next screen, so no extra emails are needed.</p>}
       </div>
 
       <span className="au-copy">© {new Date().getFullYear()} AADI Rifle Shooting Academy</span>
@@ -361,7 +364,7 @@ export default function App() {
   const [session,setSession]=useState(null); const [loading,setLoading]=useState(true); const [access,setAccess]=useState(null); const navigate=useNavigate();
   useEffect(()=>{if(!supabaseConfigured){setLoading(false);return;}supabase.auth.getSession().then(({data})=>{setSession(data.session);setLoading(false);});const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s));return()=>subscription.unsubscribe();},[]);
   useEffect(()=>{if(!session){setAccess(null);return;}setAccess(null);supabase.from('profiles').select('role').eq('id',session.user.id).maybeSingle().then(({data})=>setAccess(data&&ADMIN_ROLES.includes(data.role)?'admin':'shooter'));},[session?.user?.id]);
-  async function logout(){await detachPush();await supabase.auth.signOut();setSession(null);navigate('/');}
+  async function logout(){const uid=session?.user?.id;await detachPush();await supabase.auth.signOut();setActiveMember(null);if(uid)clearChosenMember(uid);setSession(null);navigate('/');}
   if(!supabaseConfigured)return <div className="setup-screen"><div className="setup-card"><div className="brand-mark"><Target/></div><p className="eyebrow">INITIAL SETUP</p><h1>Connect your academy portal</h1><p className="muted">Create <code>web/.env</code> from <code>.env.example</code>, add your Supabase project URL and publishable/anon key, then restart the dev server.</p><pre>VITE_SUPABASE_URL=https://…supabase.co<br/>VITE_SUPABASE_ANON_KEY=…</pre><p className="tiny muted">Never put a Supabase service-role key in a browser application.</p></div></div>;
   if(loading)return <div className="loading">Loading AADI Rifle Shooting…</div>;
   if(!session)return <Routes><Route path="/login" element={<AuthScreen/>}/><Route path="/signup" element={<AuthScreen initialMode="signup"/>}/><Route path="*" element={<LandingPage/>}/></Routes>;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Bell, Trophy, CalendarCheck, CheckCircle2, Info, LogOut, QrCode, Target, Wallet, LayoutGrid, UserMinus, Clock3, ShieldCheck, Phone, HeartHandshake, ChevronRight, X } from 'lucide-react';
 import QRCode from 'qrcode';
 import { supabase } from '../lib/supabase';
@@ -6,6 +6,7 @@ import { attendanceStats, buildInsights, scorePct, sortScores, summarizeScores }
 import { METHODS, daysUntil, duration, feeState, fmtDay, fmtTime, inr } from '../lib/format';
 import './portal.css';
 import Notifications from './Notifications';
+import { shooterDeepLink } from '../lib/notificationRoutes';
 import AlertsToggle from '../components/AlertsToggle';
 import MemberMatches from './MemberMatches';
 import { playNotificationSound, showBrowserNotification, unlockNotificationAudio } from '../lib/notificationUtils';
@@ -61,8 +62,23 @@ function QrPass({ shooter, qrImage, qrBusy, onShow, onNew }) {
   </div>;
 }
 
-export default function MemberHome({ shooter, session, onLogout }) {
-  const [tab, setTab] = useState('overview');
+export default function MemberHome({ shooter, session, onLogout, switcher = null, deepLink = null, onDeepLinkUsed = null }) {
+  // The saved QR is kept per MEMBER (not per login) so several family members can share one phone.
+  // `legacyQrKey` is where single-member accounts stored it before family accounts existed.
+  const qrKey = 'aadi_qr_' + shooter.id;
+  const legacyQrKey = 'aadi_qr_' + session.user.id;
+  const [tab, setTab] = useState(deepLink?.tab || 'overview');
+  const [focusMatch, setFocusMatch] = useState(deepLink?.match ? { id: deepLink.match, n: 1 } : null); // match to open on the Matches tab
+
+  // Tapped a notification (in the list, or the push on the lock screen): go to the screen it is about.
+  const openFromNotification = useCallback((t) => {
+    setTab(t.tab);
+    if (t.matchId) setFocusMatch({ id: t.matchId, n: Date.now() });
+    window.scrollTo?.({ top: 0, behavior: 'smooth' });
+  }, []);
+  useEffect(() => { if (deepLink) onDeepLinkUsed?.(); }, []); // the link has been applied to the initial state above
+  // Keep the active tab visible in the (horizontally scrolling) tab bar when it was changed by a link.
+  useEffect(() => { document.querySelector(`.sp-tabs [data-tab="${tab}"]`)?.scrollIntoView({ inline: 'center', block: 'nearest' }); }, [tab]);
   const [attendance, setAttendance] = useState([]);
   const [scores, setScores] = useState([]);
   const [fees, setFees] = useState([]);
@@ -119,7 +135,7 @@ export default function MemberHome({ shooter, session, onLogout }) {
         const row = payload.new;
         if (row.audience !== 'shooter' || row.shooter_id !== shooter.id) return;
         playNotificationSound(row.type);
-        showBrowserNotification(row.title, row.message);
+        showBrowserNotification(row.title, row.message, shooterDeepLink({ type: row.type, matchId: row.data?.match_id, shooterId: shooter.id }));
         setUnreadNotifications((n) => n + 1);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'shooting_scores', filter: `shooter_id=eq.${shooter.id}` }, (payload) => {
@@ -196,13 +212,18 @@ export default function MemberHome({ shooter, session, onLogout }) {
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem('aadi_qr_' + session.user.id);
+        const token = localStorage.getItem(qrKey) || localStorage.getItem(legacyQrKey);
         if (!token) return;
+        // Valid only if it is THIS member's active QR, so a legacy token can never show on the wrong member.
         const { data } = await supabase.rpc('my_qr_is_valid', { p_token: token });
-        if (data) setQrImage(await QRCode.toDataURL(token, { width: 420, margin: 2, errorCorrectionLevel: 'H' }));
+        if (data) {
+          localStorage.setItem(qrKey, token);
+          localStorage.removeItem(legacyQrKey);
+          setQrImage(await QRCode.toDataURL(token, { width: 420, margin: 2, errorCorrectionLevel: 'H' }));
+        }
       } catch (_) {}
     })();
-  }, [session.user.id]);
+  }, [qrKey, legacyQrKey]);
   useEffect(() => {
     if (!qrModal) return;
     const onKey = (e) => { if (e.key === 'Escape') setQrModal(false); };
@@ -222,8 +243,8 @@ export default function MemberHome({ shooter, session, onLogout }) {
   async function showQr(regenerate = false) {
     setError(''); setQrBusy(true);
     try {
-      const key = 'aadi_qr_' + session.user.id;
-      let token = regenerate ? null : localStorage.getItem(key);
+      const key = qrKey;
+      let token = regenerate ? null : (localStorage.getItem(key) || localStorage.getItem(legacyQrKey));
       if (token) { // the saved QR may have been replaced from another device
         const { data } = await supabase.rpc('my_qr_is_valid', { p_token: token });
         if (!data) token = null;
@@ -257,7 +278,7 @@ export default function MemberHome({ shooter, session, onLogout }) {
   return <div className="sp-page">
     <header className="sp-top"><div className="sp-wrap">
       <div className="sp-brand"><span className="sp-logo"><img src="/aadi-logo.png" alt="AADI Rifle Shooting Academy" /></span></div>
-      <div className="sp-top-actions"><button type="button" className="sp-top-qr" onClick={openQr} aria-label="Show my check-in QR"><QrCode size={18} /><span>My QR</span></button>
+      <div className="sp-top-actions">{switcher}<button type="button" className="sp-top-qr" onClick={openQr} aria-label="Show my check-in QR"><QrCode size={18} /><span>My QR</span></button>
       <button className="sp-signout" onClick={onLogout} title={session.user.email}><LogOut size={15} /><span>Sign out</span></button></div>
     </div></header>
 
@@ -394,9 +415,9 @@ export default function MemberHome({ shooter, session, onLogout }) {
         </>}
       </section>}
 
-      {tab === 'notifications' && <section className="sp-panel"><Notifications compact shooterId={shooter.id} onUnreadChange={setUnreadNotifications} /></section>}
+      {tab === 'notifications' && <section className="sp-panel"><Notifications compact shooterId={shooter.id} onUnreadChange={setUnreadNotifications} onOpen={openFromNotification} /></section>}
 
-      {tab === 'matches' && <MemberMatches shooter={shooter} />}
+      {tab === 'matches' && <MemberMatches shooter={shooter} focusMatch={focusMatch} />}
 
       {tab === 'fees' && <section className="sp-panel">
         <h2>My fees</h2>

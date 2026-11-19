@@ -48,6 +48,31 @@ How it works:
 
 Supabase tip: for easy local testing, turn off Authentication → Providers → Email → "Confirm email". Leave it on in production.
 
+## 2c. Family accounts: parents and children on one email (run migration 021)
+One login (one email) can now hold several people, for example a parent and two children, or just the children.
+Each person is still a separate shooter with their **own membership ID, approval, QR pass, attendance, scores, fees, matches and alerts**. Only the login is shared.
+
+How it looks to the family
+1. The parent creates one account with the family email (the sign-up page explains this).
+2. A short form asks **Who is joining?** — *Myself*, *My child* or *Another family member*. Guardian details are pre-filled from earlier members, so the parent never types them twice.
+3. After signing in, a **Who's training today?** screen shows one card per person with a plain status (Awaiting approval / Active / Needs changes), their unread alerts and an **Add a family member** card. A person with only one member goes straight to their dashboard, exactly as before.
+4. A switcher in the dashboard header changes member in one tap. Up to 6 members per login.
+
+How it looks to the academy
+- **Approvals** shows a *Child / Family account (3 members)* tag, and the admin alert says "family account with 2 other members". Each person is approved or rejected separately.
+- Fee emails and phone alerts that go to a shared inbox name the member ("Aarav – Fee reminder: …", "Aarav: New fee added") so parents know which child they are about.
+
+Deploying this update
+1. Apply the database change: `npm run db:setup` (or run `supabase/migrations/021_family_accounts.sql` in the SQL Editor). Existing single-member accounts keep working unchanged.
+2. Redeploy the two edge functions that changed: `supabase functions deploy fee-mail` and `supabase functions deploy push-notify`.
+3. Deploy the web app.
+
+Quick test after deploying: sign up with a new email, register a child, add yourself, add a second child. Approve all three as admin. Sign in again, switch member, open **My QR** for each, and check that each shows a different name and that checking one in does not affect the others.
+
+Technical notes
+- `shooters.user_id` is no longer unique. Reading data is allowed for every member on the login (`my_shooter_ids()`); actions "as me" use `my_shooter_id()`, which honours the `x-aadi-member` header the web app sends, but only if that member belongs to the signed-in login.
+- The saved QR is stored per member in the browser. A QR already saved by an existing single-member user is migrated automatically on first load.
+
 ## 3. Run the web application
 
 ```powershell
@@ -207,3 +232,10 @@ Run `npm run db:setup` to apply migration 015.
 - A shooter always sees their own score per sheet and total, live. Their **position** appears only when *Shooters can see their position* is ON.
 - Set the match to **Completed**, then switch on **Publish full results** so registered shooters can open **View full results** (every shooter's position and sheet scores, with their own row highlighted).
 - The welcome card in the shooter portal now shows the member's **QR code** (tap to enlarge for the front desk). It only displays the QR already saved on that device, and never issues a new one by itself.
+
+
+## Matches: results for every shooter (migration 022)
+Run `npm run db:setup` to apply `022_public_match_results.sql`. Once a completed match is marked *results published*, every shooter (including new members or anyone who did not register) sees the podium, full standings and team standings, and the real participant count. The Matches tab now has Upcoming / Completed / All filters, collapsed match cards and a *Show more* list so it stays short as matches pile up.
+
+## Tap-to-open notifications and live matches
+Tapping a notification (in the Alerts list, or the push on the lock screen) now opens the screen it is about: scores, fees, the exact match (opened and highlighted), approvals, shooters or payments for admins. For family logins it also switches to the right child. Matches the admin sets to *live* are pinned to the top of the Matches tab with a red LIVE NOW banner. **Redeploy the `push-notify` edge function** (`supabase functions deploy push-notify`) so lock-screen pushes carry the deep link.
