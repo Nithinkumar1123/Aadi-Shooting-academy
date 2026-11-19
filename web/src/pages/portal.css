@@ -1,19 +1,19 @@
 /* Shooter portal (approved members). All classes are prefixed sp- so nothing else is affected. */
-.sp-page{min-height:100vh;background:#f4f6fa;color:#172238;padding-bottom:48px}
+.sp-page{min-height:100vh;background:#faf5f2;color:#39101d;padding-bottom:48px}
 .sp-wrap{max-width:880px;margin:0 auto;padding:0 16px}
-.sp-top{background:#111d34;color:#fff}
+.sp-top{background:#3b0918;color:#fff}
 .sp-top .sp-wrap{height:64px;display:flex;align-items:center;justify-content:space-between}
 .sp-brand{display:flex;align-items:center;gap:11px}
 .sp-brand strong{display:block;font:800 13px Manrope,sans-serif;letter-spacing:.08em}
-.sp-brand span{display:block;color:#8996ad;font-size:10px;letter-spacing:.14em;margin-top:3px}
-.sp-signout{display:inline-flex;align-items:center;gap:8px;border:1px solid #31425f;background:transparent;color:#c9d2e2;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:600}
+.sp-brand span{display:block;color:#c7a9b2;font-size:10px;letter-spacing:.14em;margin-top:3px}
+.sp-signout{display:inline-flex;align-items:center;gap:8px;border:1px solid #31425f;background:transparent;color:#ead5da;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:600}
 .sp-signout:hover{background:#1d2c48;color:#fff}
 
 /* Membership card */
 .sp-card{position:relative;overflow:hidden;margin-top:22px;border-radius:20px;padding:26px 24px;color:#fff;
-  background:linear-gradient(135deg,#14213a 0%,#263a5a 100%);box-shadow:0 10px 30px #14213a30}
+  background:linear-gradient(135deg,#3b0918 0%,#263a5a 100%);box-shadow:0 10px 30px #3b091830}
 .sp-card::after{content:"";position:absolute;right:-70px;top:-70px;width:260px;height:260px;border-radius:50%;pointer-events:none;
-  background:radial-gradient(circle,transparent 0 34px,#d5a84c40 34px 36px,transparent 36px 66px,#d5a84c30 66px 68px,transparent 68px 98px,#d5a84c22 98px 100px,transparent 100px)}
+  background:radial-gradient(circle,transparent 0 34px,#e8b84a40 34px 36px,transparent 36px 66px,#e8b84a30 66px 68px,transparent 68px 98px,#e8b84a22 98px 100px,transparent 100px)}
 .sp-card>*{position:relative;z-index:1}
 .sp-hello{margin:0 0 4px;color:#aebad0;font-size:13px}
 .sp-name{margin:0;font:800 26px Manrope,sans-serif;letter-spacing:-.01em}
@@ -29,16 +29,16 @@
 /* Stats */
 .sp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
 .sp-stat{background:#fff;border:1px solid #e9edf3;border-radius:14px;padding:16px}
-.sp-stat b{display:block;font:800 26px Manrope,sans-serif;color:#172238}
+.sp-stat b{display:block;font:800 26px Manrope,sans-serif;color:#39101d}
 .sp-stat span{display:block;margin-top:4px;color:#7e899a;font-size:12px}
 
 /* Tabs */
 .sp-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:#e6ebf2;border-radius:13px;padding:4px;margin-top:18px}
 .sp-tabs button{border:0;background:transparent;border-radius:10px;padding:11px 8px;display:flex;align-items:center;justify-content:center;gap:7px;color:#66748b;font-size:13px;font-weight:600}
-.sp-tabs button.active{background:#fff;color:#172238;box-shadow:0 1px 6px #1b2b4618}
-.sp-tab-count{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#d5a84c;color:#14213a;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;margin-left:2px;box-shadow:0 1px 3px #14213a18}
-.sp-tabs button.active .sp-tab-count{background:#172238;color:#fff}
-.sp-tabs button:focus-visible,.sp-btn:focus-visible,.sp-signout:focus-visible{outline:2px solid #d5a84c;outline-offset:2px}
+.sp-tabs button.active{background:#fff;color:#39101d;box-shadow:0 1px 6px #1b2b4618}
+.sp-tab-count{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#e8b84a;color:#3b0918;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1;margin-left:2px;box-shadow:0 1px 3px #3b091818}
+.sp-tabs button.active .sp-tab-count{background:#39101d;color:#fff}
+.sp-tabs button:focus-visible,.sp-btn:focus-visible,.sp-signout:focus-visible{outline:2px solid #e8b84a;outline-offset:2px}
 
 /* Panels */
 .sp-panel{background:#fff;border:1px solid #e9edf3;border-radius:16px;padding:22px;margin-top:14px}
@@ -68,7 +68,7 @@
 .sp-date b{display:block;font:800 18px Manrope,sans-serif;line-height:1.1}
 .sp-date span{display:block;color:#66748b;font-size:11px;margin-top:2px}
 .sp-grow{flex:1;min-width:0}
-.sp-grow b{display:block;font-size:14px;color:#172238}
+.sp-grow b{display:block;font-size:14px;color:#39101d}
 .sp-grow span{display:block;margin-top:3px;color:#7e899a;font-size:12px}
 .sp-badge{border-radius:20px;padding:5px 10px;font-size:12px;font-weight:600;white-space:nowrap}
 .sp-badge.ok{background:#eaf6ee;color:#38804e}
@@ -80,7 +80,7 @@
 .sp-score b{display:block;font:800 22px Manrope,sans-serif;line-height:1.1}
 .sp-score small{color:#8792a4;font-size:12px}
 .sp-bar{height:6px;border-radius:6px;background:#eef1f6;margin-top:8px;overflow:hidden}
-.sp-bar i{display:block;height:100%;border-radius:6px;background:#d5a84c}
+.sp-bar i{display:block;height:100%;border-radius:6px;background:#e8b84a}
 .sp-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
 .sp-summary div{background:#f7f9fc;border-radius:12px;padding:12px}
 .sp-summary b{display:block;font:800 20px Manrope,sans-serif}
@@ -106,7 +106,7 @@
 .sp-alert b{display:block;font-size:14px}.sp-alert small{display:block;margin-top:2px;font-size:12px;opacity:.85}
 .sp-tip{display:flex;gap:12px;padding:14px;border-radius:12px;margin-bottom:10px;border:1px solid transparent}
 .sp-tip svg{flex:none;margin-top:2px}
-.sp-tip b{display:block;font-size:14px;color:#172238}.sp-tip span{display:block;margin-top:3px;font-size:13px;line-height:1.55;color:#5f6c82}
+.sp-tip b{display:block;font-size:14px;color:#39101d}.sp-tip span{display:block;margin-top:3px;font-size:13px;line-height:1.55;color:#5f6c82}
 .sp-tip.improve{background:#fdf6e3;border-color:#f3e2b8}.sp-tip.improve svg{color:#b7791f}
 .sp-tip.good{background:#eef8f1;border-color:#d3ecdb}.sp-tip.good svg{color:#38804e}
 .sp-tip.info{background:#f3f6fb;border-color:#e2e8f2}.sp-tip.info svg{color:#58698a}
@@ -132,19 +132,19 @@
 .sp-att-stat.featured{border-color:#ead9b4;background:linear-gradient(135deg,#fffaf0,#f9fbfd)}
 .sp-att-icon{width:38px;height:38px;border-radius:11px;background:#edf2f8;color:#536a8c;display:grid;place-items:center;flex:none}
 .sp-att-stat.featured .sp-att-icon{background:#fff0cd;color:#a8781c}
-.sp-att-stat b{display:block;font:800 23px Manrope,sans-serif;color:#172238;line-height:1}
+.sp-att-stat b{display:block;font:800 23px Manrope,sans-serif;color:#39101d;line-height:1}
 .sp-att-stat span:not(.sp-att-icon){display:block;margin-top:5px;color:#7e899a;font-size:11px}
 .sp-attendance-history{border-top:1px solid #eef1f5;padding-top:20px}
 .sp-history-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
-.sp-history-head h3{margin:0;font:800 14px Manrope,sans-serif;color:#172238}
+.sp-history-head h3{margin:0;font:800 14px Manrope,sans-serif;color:#39101d}
 .sp-history-head p{margin:4px 0 0;color:#8994a5;font-size:11px}
 .sp-history-head>span{font-size:10px;font-weight:700;color:#65738a;background:#f0f3f8;border-radius:999px;padding:6px 9px}
 .sp-session-list{display:grid;gap:9px}
 .sp-session{display:flex;align-items:center;gap:14px;border:1px solid #e9edf3;border-radius:14px;background:#fff;padding:13px 14px;transition:border-color .15s,box-shadow .15s,transform .15s}
-.sp-session:hover{border-color:#dfe5ed;box-shadow:0 5px 18px #14213a0b;transform:translateY(-1px)}
+.sp-session:hover{border-color:#dfe5ed;box-shadow:0 5px 18px #3b09180b;transform:translateY(-1px)}
 .sp-session.active{border-color:#e7d4a6;background:linear-gradient(90deg,#fffaf0 0%,#fff 28%)}
 .sp-session-date{width:55px;min-width:55px;text-align:center;border-radius:11px;background:#f0f3f8;padding:7px 4px}
-.sp-session-date b{display:block;font:800 18px Manrope,sans-serif;color:#172238;line-height:1.05}
+.sp-session-date b{display:block;font:800 18px Manrope,sans-serif;color:#39101d;line-height:1.05}
 .sp-session-date span{display:block;color:#6d7b91;font-size:10px;font-weight:700;margin-top:2px;text-transform:uppercase}
 .sp-session-date small{display:block;color:#9aa3b1;font-size:9px;margin-top:2px}
 .sp-session-main{flex:1;min-width:0}
@@ -157,7 +157,7 @@
 .sp-session-times b{display:block;color:#33445e;font-size:11px}
 .sp-session-arrow{color:#c0c8d3;font-size:13px;margin-bottom:1px}
 .sp-session-duration{margin-left:auto!important;text-align:right}
-.sp-session-duration b{color:#172238}
+.sp-session-duration b{color:#39101d}
 .sp-session-status{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 9px;font-size:9px;font-weight:800;white-space:nowrap}
 .sp-session-status i{width:5px;height:5px;border-radius:50%;background:currentColor}
 .sp-session-status.done{background:#eef7f1;color:#43805a}

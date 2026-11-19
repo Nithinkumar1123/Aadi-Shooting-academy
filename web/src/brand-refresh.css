@@ -1,0 +1,62 @@
+
+/* AADI brand refinement — maroon and warm gold, with clearer hierarchy */
+:root{
+  --aadi-maroon:#5b1024; --aadi-deep:#390916; --aadi-berry:#7b1d35;
+  --aadi-gold:#e8b84a; --aadi-cream:#fff8f2; --aadi-border:#eadbdc;
+}
+.public-site,.app-shell,.au-page,.sp-page,.fam-page{
+  --navy:#5b1024;--navy-2:#7b1d35;--gold:#e8b84a;--gold-d:#a87920;
+  --ink:#4b0d1e;--p-navy:#5b1024;--p-navy2:#390916;--p-gold:#e8b84a;
+  --p-gold-d:#a87920;--p-ink:#4b0d1e;--p-muted:#8b6b73;--p-line:#eadbdc;--p-bg:#fff8f2;
+  --f-navy:#5b1024;--f-gold:#e8b84a;--f-gold-d:#a87920;--f-ink:#4b0d1e;
+}
+body{background:#fff8f2}
+.public-site .public-nav{background:rgba(255,255,255,.97);border-bottom-color:#eadbdc}
+.public-site .landing-logo img{height:54px;border-radius:10px;box-shadow:0 4px 12px rgba(59,9,24,.13)}
+.public-site .nav-register,.public-site .primary,.public-site .hero-cta,.public-site .cta-button{
+  background:linear-gradient(135deg,#f6d578,#e8b84a)!important;color:#4b0d1e!important;
+  box-shadow:0 7px 18px rgba(168,121,32,.18)
+}
+.public-site .public-main-nav a.active:after{background:#e8b84a}
+.public-site .public-main-nav a:hover,.public-site .nav-login:hover{color:#a87920}
+.public-site .public-hero,.public-site .hero{background:#fff8f2}
+.public-site .hero h1,.public-site h2,.public-site h3{color:#4b0d1e}
+.public-site .hero p,.public-site .section-lead{color:#80646b}
+.public-site .section-kicker,.public-site .eyebrow{color:#a87920}
+.public-site .feature-card,.public-site .program-card,.public-site .location-card{
+  border:1px solid #eadbdc;box-shadow:0 12px 32px rgba(59,9,24,.06)
+}
+.app-shell .sidebar{background:linear-gradient(180deg,#5b1024 0%,#390916 100%)}
+.app-shell .side-logo{background:transparent;padding:0;box-shadow:none;border-radius:12px}
+.app-shell .side-logo img{width:100%;max-width:220px;border-radius:10px}
+.app-shell .sidebar nav a.active{background:linear-gradient(135deg,#f6d578,#e8b84a);color:#4b0d1e}
+.app-shell .topbar{border-bottom-color:#eadbdc}
+.app-shell .primary,.app-shell button.primary,.app-shell .btn-primary{
+  background:linear-gradient(135deg,#f6d578,#e8b84a);border-color:#e8b84a;color:#4b0d1e
+}
+.app-shell .card,.app-shell .panel,.app-shell .stat-card,.app-shell .table-wrap{
+  border-color:#eadbdc
+}
+.au-page{background:#fff8f2}
+.au-side{background:#5b1024}
+.au-side-shade{background:linear-gradient(160deg,rgba(59,9,24,.93),rgba(91,16,36,.83),rgba(59,9,24,.97))}
+.au-logo{padding:0;background:none;box-shadow:none;border-radius:12px}
+.au-logo img{height:60px;border-radius:10px}
+.au-pill{background:rgba(232,184,74,.18);color:#f6d578}
+.au-side:after{background:#e8b84a}
+.au-card{border-color:#eadbdc;box-shadow:0 20px 50px rgba(59,9,24,.08)}
+.au-page .primary,.au-page button[type=submit]{background:linear-gradient(135deg,#f6d578,#e8b84a);color:#4b0d1e}
+.sp-top{background:linear-gradient(90deg,#5b1024,#390916)}
+.sp-logo img{height:42px;width:auto;max-width:200px;display:block;border-radius:8px}
+.sp-signout{border-color:rgba(255,255,255,.28);color:#f6e8ed}
+.sp-signout:hover{background:rgba(255,255,255,.12)}
+.fam-card,.fam-sheet,.fam-switch{border-color:#eadbdc}
+.fam-page{background:#fff8f2}
+.login-wrap .brand-mark{background:#e8b84a;color:#4b0d1e}
+@media(max-width:700px){
+  .public-site .landing-logo img{height:43px}
+  .public-site .public-nav-inner{gap:10px}
+  .app-shell .side-logo img{max-width:185px}
+  .au-logo img{height:48px}
+  .sp-logo img{height:35px;max-width:160px}
+}

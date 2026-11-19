@@ -8,6 +8,7 @@ import './styles.css';
 import './public-home.css';
 import './auth.css';
 import './portal-theme.css';
+import './brand-refresh.css';
 
 registerPwa();
 

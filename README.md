@@ -239,3 +239,17 @@ Run `npm run db:setup` to apply `022_public_match_results.sql`. Once a completed
 
 ## Tap-to-open notifications and live matches
 Tapping a notification (in the Alerts list, or the push on the lock screen) now opens the screen it is about: scores, fees, the exact match (opened and highlighted), approvals, shooters or payments for admins. For family logins it also switches to the right child. Matches the admin sets to *live* are pinned to the top of the Matches tab with a red LIVE NOW banner. **Redeploy the `push-notify` edge function** (`supabase functions deploy push-notify`) so lock-screen pushes carry the deep link.
+
+## Google Sheets backup (migration 023)
+Every addition and change (shooters, check-ins, scores, fees, matches, registrations, rifles, leave requests) is copied to a Google Sheet automatically.
+
+1. Apply the database update: `npm run db:setup` (adds migration `023_google_sheets_backup.sql`). It needs the **pg_net** and **pg_cron** extensions (Supabase -> Database -> Extensions, both are free).
+2. Sign in as an admin and open **Backup** in the sidebar. Follow the 4 steps on that page: create a private Google Sheet, paste the Apps Script (a *Copy script* button is provided; the file is also in `web/src/assets/backup-receiver.gs`), deploy it as a Web app, then paste the URL and secret.
+3. Press **Connect and back up everything**. Existing data is copied first, then every change follows within about a minute.
+
+How it works: a database trigger writes each change to a queue in the same transaction (so nothing is missed), a job sends the queue to the Google Sheet every minute and retries if Google is unreachable, and a full copy re-runs every Monday as a safety net. The sheet gets one tab per area plus a **Change Log** tab (one line per addition / edit / deletion). Deleted records are kept and marked in `_deleted_at`. Passwords and QR codes are never copied. Keep the sheet private: it contains member details.
+
+
+## Professional brand refresh
+
+The web app now uses the supplied AADI maroon-and-gold logo set and a matching brand theme. Logo assets are in `web/public/`; the visual override is `web/src/brand-refresh.css`, imported after the existing styles. Existing React routes, Supabase integration, and features were retained.

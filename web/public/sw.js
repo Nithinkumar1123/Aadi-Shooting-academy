@@ -1,6 +1,6 @@
 // AADI service worker: makes the app installable and loads the app shell fast.
 // Live data (Supabase) is NEVER cached, so attendance/status is always current.
-const CACHE = 'aadi-shell-v3';
+const CACHE = 'aadi-shell-v4';
 const SHELL = ['/', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png', '/aadi-logo.png'];
 
 self.addEventListener('install', (e) => {

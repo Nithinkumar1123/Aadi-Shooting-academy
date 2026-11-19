@@ -1,7 +1,7 @@
 /* Family accounts: "Who's training today?", add-a-member form and the member switcher.
    Every class is prefixed fam- so nothing else is affected. Palette matches the member portal. */
-.fam-page,.fam-switch,.fam-form,.fam-sheet,.fam-backdrop{--f-navy:#0b2850;--f-gold:#f5b21a;--f-gold-d:#c88b08;--f-ink:#0d1f45;--f-muted:#5a6a84;--f-line:#e3ebf6;--f-red:#c2493d;--f-green:#2f8a5b;--f-amber:#b9791d;font-family:'Manrope','DM Sans',sans-serif}
-.fam-page{background:#f4f8ff}
+.fam-page,.fam-switch,.fam-form,.fam-sheet,.fam-backdrop{--f-navy:#5b1024;--f-gold:#e8b84a;--f-gold-d:#a87920;--f-ink:#4b0d1e;--f-muted:#8b6b73;--f-line:#eadbdc;--f-red:#c2493d;--f-green:#2f8a5b;--f-amber:#b9791d;font-family:'Manrope','DM Sans',sans-serif}
+.fam-page{background:#fff8f2}
 .fam-wrap{padding-top:22px;padding-bottom:40px}
 .fam-back{display:inline-flex;align-items:center;gap:7px;margin:0 0 14px;padding:8px 12px 8px 8px;border:0;border-radius:10px;background:transparent;color:var(--f-navy);font:700 14px 'Manrope',sans-serif;cursor:pointer}
 .fam-back:hover{background:#e8effa}
@@ -31,7 +31,7 @@
 /* Status chips */
 .fam-chip{display:inline-flex;align-items:center;gap:7px;margin-top:2px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
 .fam-chip i,.fam-st{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block;flex:none}
-.fam-chip.ok{background:#e6f5ec;color:#1f7a4a}.fam-chip.wait{background:#fff3d6;color:#8a5a00}.fam-chip.bad{background:#fde9e6;color:#a8372c}.fam-chip.off{background:#eef1f6;color:#5a6a84}
+.fam-chip.ok{background:#e6f5ec;color:#1f7a4a}.fam-chip.wait{background:#fff3d6;color:#8a5a00}.fam-chip.bad{background:#fde9e6;color:#a8372c}.fam-chip.off{background:#eef1f6;color:#8b6b73}
 
 /* Form */
 .fam-form{display:block}
@@ -72,11 +72,11 @@
 .fam-actions{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:22px;flex-wrap:wrap}
 .fam-actions.stack{flex-direction:column;align-items:stretch;justify-content:flex-start}
 .fam-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:0 24px;border-radius:999px;font:800 15px 'Manrope','DM Sans',sans-serif;cursor:pointer;transition:filter .15s,transform .05s}
-.fam-btn.primary{border:0;background:linear-gradient(135deg,#ffd34f,#f2ae09);color:var(--f-navy);box-shadow:0 8px 20px rgba(242,174,9,.28)}
+.fam-btn.primary{border:0;background:linear-gradient(135deg,#f6d578,#dca63d);color:var(--f-navy);box-shadow:0 8px 20px rgba(242,174,9,.28)}
 .fam-btn.primary:hover:not(:disabled){filter:brightness(1.04)}
 .fam-btn.primary:active:not(:disabled){transform:translateY(1px)}
-.fam-btn.ghost{border:1.5px solid #c9d6ea;background:#fff;color:var(--f-navy)}
-.fam-btn.ghost:hover:not(:disabled){border-color:var(--f-navy);background:#f4f8ff}
+.fam-btn.ghost{border:1.5px solid #ead5da;background:#fff;color:var(--f-navy)}
+.fam-btn.ghost:hover:not(:disabled){border-color:var(--f-navy);background:#fff8f2}
 .fam-btn:disabled{opacity:.65;cursor:wait}
 
 /* Confirmation */
@@ -100,7 +100,7 @@
 .fam-switch.dark .fam-switch-btn{border:1px solid #31425f;background:transparent;color:#e2e9f6}
 .fam-switch.dark .fam-switch-btn:hover{background:#1d2c48;color:#fff}
 .fam-switch.light .fam-switch-btn{border:1.5px solid #d6e0ee;background:#fff;color:var(--f-navy)}
-.fam-switch.light .fam-switch-btn:hover{background:#f4f8ff}
+.fam-switch.light .fam-switch-btn:hover{background:#fff8f2}
 .fam-switch-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fam-switch-btn .flip{transform:rotate(180deg)}
 .fam-dot,.fam-count{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:999px;background:var(--f-gold);color:var(--f-navy);font-size:11px;font-weight:800}

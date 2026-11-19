@@ -1,6 +1,6 @@
 /* AADI sign in / create account: matches the public homepage */
-.au-page{--navy:#0b2850;--gold:#f5b21a;--gold-d:#c88b08;--ink:#10284e;
-  min-height:100vh;display:grid;grid-template-columns:minmax(380px,.95fr) 1.05fr;background:#f4f8ff;color:var(--ink);font-family:'Manrope','DM Sans',sans-serif}
+.au-page{--navy:#5b1024;--gold:#e8b84a;--gold-d:#a87920;--ink:#5b1024;
+  min-height:100vh;display:grid;grid-template-columns:minmax(380px,.95fr) 1.05fr;background:#fff8f2;color:var(--ink);font-family:'Manrope','DM Sans',sans-serif}
 .au-page *{box-sizing:border-box}
 .au-page a:focus-visible,.au-page button:focus-visible,.au-page input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 
@@ -10,9 +10,9 @@
 .au-side-shade{position:absolute;inset:0;background:linear-gradient(160deg,rgba(8,34,72,.92) 0%,rgba(11,40,80,.78) 50%,rgba(8,34,72,.95) 100%)}
 .au-side:after{content:"";position:absolute;left:-10%;right:-10%;bottom:-6px;height:8px;background:var(--gold);border-radius:50%}
 .au-side-inner{position:relative;z-index:2;min-height:100vh;padding:34px clamp(28px,4.2vw,64px) 40px;display:flex;flex-direction:column;justify-content:space-between;gap:36px}
-.au-logo{display:inline-flex;align-self:flex-start;padding:8px 16px;border-radius:16px;background:#fff;box-shadow:0 10px 26px rgba(0,0,0,.22)}
-.au-logo img{height:48px;width:auto;display:block}
-.au-pill{display:inline-block;padding:8px 16px;border-radius:999px;background:rgba(245,178,26,.18);color:#ffd34f;font-size:14px;font-weight:700}
+.au-logo{display:inline-flex;align-self:flex-start;padding:0;border-radius:16px;background:none;overflow:hidden;box-shadow:0 10px 26px rgba(0,0,0,.3)}
+.au-logo img{height:60px;width:auto;display:block}
+.au-pill{display:inline-block;padding:8px 16px;border-radius:999px;background:rgba(245,178,26,.18);color:#f6d578;font-size:14px;font-weight:700}
 .au-side h1{margin:18px 0 14px;font-size:clamp(38px,4vw,60px);line-height:1.03;letter-spacing:-.035em;font-weight:800;color:#fff}
 .au-side h1 em{font-style:normal;color:var(--gold)}
 .au-side-copy>p{max-width:430px;margin:0 0 26px;font-size:17px;line-height:1.65;color:#d4def0;font-weight:500}
@@ -28,28 +28,28 @@
 .au-back{display:inline-flex;align-items:center;gap:8px;color:var(--ink);font-size:15px;font-weight:700;text-decoration:none}
 .au-back:hover{color:var(--gold-d)}
 .au-logo-sm{display:none}
-.au-card{width:min(480px,100%);padding:34px 34px 28px;border:1px solid #e3ebf6;border-radius:26px;background:#fff;box-shadow:0 20px 50px rgba(16,40,78,.10)}
+.au-card{width:min(480px,100%);padding:34px 34px 28px;border:1px solid #eadbdc;border-radius:26px;background:#fff;box-shadow:0 20px 50px rgba(16,40,78,.10)}
 .au-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px;margin-bottom:26px;border-radius:999px;background:#eef3fb}
-.au-tabs button{height:44px;border:0;border-radius:999px;background:none;color:#51627d;font:700 15px 'Manrope','DM Sans',sans-serif;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
+.au-tabs button{height:44px;border:0;border-radius:999px;background:none;color:#8b6b73;font:700 15px 'Manrope','DM Sans',sans-serif;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
 .au-tabs button.active{background:#fff;color:var(--ink);box-shadow:0 4px 12px rgba(16,40,78,.12)}
-.au-card h2{margin:0 0 6px;font-size:30px;line-height:1.15;letter-spacing:-.025em;font-weight:800;color:#0d1f45}
-.au-sub{margin:0 0 24px;font-size:15.5px;line-height:1.6;color:#51627d}
+.au-card h2{margin:0 0 6px;font-size:30px;line-height:1.15;letter-spacing:-.025em;font-weight:800;color:#4b0d1e}
+.au-sub{margin:0 0 24px;font-size:15.5px;line-height:1.6;color:#8b6b73}
 .au-field{display:block;margin-bottom:18px}
-.au-field>span{display:block;margin-bottom:8px;font-size:14.5px;font-weight:700;color:#0d1f45}
+.au-field>span{display:block;margin-bottom:8px;font-size:14.5px;font-weight:700;color:#4b0d1e}
 .au-input{display:flex;align-items:center;gap:10px;height:54px;padding:0 14px;border:1.5px solid #d6e0ee;border-radius:14px;background:#f9fbff;color:#6a7b96;transition:border-color .2s,box-shadow .2s,background .2s}
 .au-input:focus-within{border-color:var(--gold);background:#fff;box-shadow:0 0 0 4px rgba(245,178,26,.18)}
-.au-input input{flex:1;min-width:0;height:100%;border:0;outline:0;background:none;font:600 16px 'Manrope','DM Sans',sans-serif;color:#0d1f45;padding:0}
+.au-input input{flex:1;min-width:0;height:100%;border:0;outline:0;background:none;font:600 16px 'Manrope','DM Sans',sans-serif;color:#4b0d1e;padding:0}
 .au-input input::placeholder{color:#94a3bb;font-weight:500}
 .au-eye{display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:10px;background:none;color:#6a7b96;cursor:pointer}
 .au-eye:hover{background:#eef3fb;color:var(--ink)}
 .au-msg{margin:0 0 16px;padding:12px 14px;border-radius:12px;font-size:14.5px;line-height:1.5;font-weight:600}
 .au-msg.error{background:#fdecec;color:#b42318;border:1px solid #f6c6c2}
 .au-msg.ok{background:#e8f7ee;color:#157347;border:1px solid #bfe5cc}
-.au-submit{width:100%;height:56px;display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:999px;background:linear-gradient(135deg,#ffd34f,#f2ae09);color:var(--ink);font:800 16px 'Manrope','DM Sans',sans-serif;cursor:pointer;box-shadow:0 10px 24px rgba(242,174,9,.32);transition:transform .2s,box-shadow .2s,opacity .2s}
+.au-submit{width:100%;height:56px;display:flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:999px;background:linear-gradient(135deg,#f6d578,#dca63d);color:var(--ink);font:800 16px 'Manrope','DM Sans',sans-serif;cursor:pointer;box-shadow:0 10px 24px rgba(242,174,9,.32);transition:transform .2s,box-shadow .2s,opacity .2s}
 .au-submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 14px 28px rgba(242,174,9,.4)}
 .au-submit:disabled{opacity:.7;cursor:wait}
-.au-switch{margin:20px 0 0;text-align:center;font-size:15px;color:#51627d}
-.au-switch button{border:0;background:none;padding:0;color:#123f73;font:800 15px 'Manrope','DM Sans',sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.au-switch{margin:20px 0 0;text-align:center;font-size:15px;color:#8b6b73}
+.au-switch button{border:0;background:none;padding:0;color:#7b1d35;font:800 15px 'Manrope','DM Sans',sans-serif;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .au-switch button:hover{color:var(--gold-d)}
 .au-hint{margin:8px 0 0;text-align:center;font-size:13.5px;color:#7a8aa3}
 .au-copy{font-size:13.5px;color:#7a8aa3}
@@ -61,7 +61,7 @@
   .au-side-inner{min-height:0;padding:22px 22px 30px;gap:18px}
   .au-side-copy>p,.au-points,.au-side-note{display:none}
   .au-side h1{font-size:clamp(30px,8vw,40px);margin:12px 0 0}
-  .au-logo img{height:40px}
+  .au-logo img{height:50px}
   .au-main{padding:24px 16px 32px;justify-content:flex-start;margin-top:-6px}
   .au-top{display:none}
   .au-card{padding:26px 20px 22px;border-radius:22px}
@@ -71,7 +71,7 @@
 
 /* Field-level validation + no double focus ring */
 .au-page .au-input input:focus-visible{outline:none}
-.au-field label{display:block;margin-bottom:8px;font-size:14.5px;font-weight:700;color:#0d1f45}
+.au-field label{display:block;margin-bottom:8px;font-size:14.5px;font-weight:700;color:#4b0d1e}
 .au-input.invalid{border-color:#e05545;background:#fff8f7}
 .au-input.invalid:focus-within{box-shadow:0 0 0 4px rgba(224,85,69,.15)}
 .au-err{margin:7px 0 0;font-size:13.5px;line-height:1.4;font-weight:600;color:#b42318}
