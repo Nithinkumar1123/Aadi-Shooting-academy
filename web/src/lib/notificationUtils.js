@@ -81,9 +81,9 @@ export async function requestBrowserNotifications() {
 
 // Installed apps (Android/iOS) must show notifications through the service worker;
 // `new Notification()` is rejected there. Falls back to it only on desktop browsers.
-export async function showBrowserNotification(title, message, url = '/') {
+export async function showBrowserNotification(title, message) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return false;
-  const options = { body: message, icon: '/icon-192.png', badge: '/icon-192.png', tag: 'aadi-' + title, renotify: true, vibrate: [120, 60, 120], data: { url } };
+  const options = { body: message, icon: '/icon-192.png', badge: '/icon-192.png', tag: 'aadi-' + title, renotify: true, vibrate: [120, 60, 120], data: { url: '/' } };
   try {
     if ('serviceWorker' in navigator) {
       const reg = (await navigator.serviceWorker.getRegistration()) || (await Promise.race([navigator.serviceWorker.ready, new Promise((r) => setTimeout(() => r(null), 1500))]));

@@ -832,44 +832,10 @@ tr.podium.p1 td{background:#fffbea}
 .mm-teams-final{display:flex;flex-direction:column;gap:6px}.mm-teams-final>small{font:700 10.5px Manrope,sans-serif;letter-spacing:.12em;color:#8792a4}
 .mm-team-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid #e6ecf5;border-radius:12px;background:#fff}.mm-team-row.me{border-color:#0b2850;background:#f1f7ff}
 
-/* ---- Matches: filters, collapsed cards, standings for non-participants ---- */
-.mm-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:16px}
-.mm-tabs{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:#eef2f8}
-.mm-tabs button{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 16px;border:0;border-radius:999px;background:none;color:#4a5b78;font:700 13.5px Manrope,sans-serif;cursor:pointer;transition:background .15s,color .15s}
-.mm-tabs button span{min-width:20px;padding:1px 6px;border-radius:999px;background:rgba(11,40,80,.08);font-size:11.5px;text-align:center}
-.mm-tabs button.on{background:#fff;color:#0b2850;box-shadow:0 2px 8px rgba(16,40,78,.12)}
-.mm-tabs button.on span{background:#0b2850;color:#fff}
-.mm-tabs.inline{margin-top:14px;align-self:flex-start}
-.mm-search{position:relative;flex:1;min-width:180px;max-width:300px;margin-left:auto}
-.mm-search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#8792a4;pointer-events:none}
-.mm-search input{width:100%;min-height:42px;padding:0 14px 0 38px;border:1.5px solid #dfe6f1;border-radius:999px;background:#fff;font:600 14px Manrope,sans-serif;color:#172238}
-.mm-search input:focus{outline:none;border-color:#0b2850}
-.mm-card.is-open{border-color:#c8d6ec}
-.mm-summary{display:flex;align-items:center;gap:9px;margin-top:14px;padding:11px 14px;border-radius:12px;background:#f4f7fc;color:#36496b;font-size:13.5px}
-.mm-summary svg{flex:none;color:#b98a2e}.mm-summary b{color:#0b2850}
-.mm-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#2fbf71;animation:livePulse 1.6s infinite}
-.mm-body{display:flex;flex-direction:column;margin-top:6px}
-.mm-actions .mm-toggle{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 6px;border:0;background:none;color:#0b2850;font:800 13.5px Manrope,sans-serif;cursor:pointer}
-.mm-actions .mm-toggle:hover{text-decoration:underline}
-.mm-toggle svg{transition:transform .15s}.mm-toggle svg.flip{transform:rotate(180deg)}
-.mm-body .mm-position,.mm-body .mm-results,.mm-body .mm-hidden{margin-top:14px}
-.mm-guestnote{display:flex;align-items:flex-start;gap:9px;padding:11px 13px;border-radius:12px;background:#eef4ff;border:1px solid #d3e1fa;color:#36496b;font-size:13px;line-height:1.5}
-.mm-guestnote svg{flex:none;margin-top:2px;color:#2f63b8}
-.mm-more{display:block;width:100%;margin-top:16px}
-@media(max-width:760px){.mm-search{max-width:none;flex-basis:100%;margin-left:0}.mm-tabs{width:100%}.mm-tabs button{flex:1;justify-content:center;padding:0 8px}.mm-actions .mm-toggle{margin-left:0;width:100%;justify-content:center;border:1.5px solid #dfe6f1;border-radius:999px}}
+/* ---- Team standings + results actions (admin) ---- */
+.results-actions{flex-wrap:wrap}
+.team-standings h3{display:flex;align-items:center;gap:7px;margin:4px 0 8px;font:800 15px Manrope,sans-serif;color:#0b2850}
 
-/* ---- Live matches pinned on top + tappable notifications ---- */
-.mm-livesection{display:flex;flex-direction:column;margin-top:18px}
-.mm-livehead{display:flex;align-items:center;gap:10px;padding:0 4px}
-.mm-livehead small{color:#5a6a82;font-size:13px}
-.mm-livepill{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:999px;background:#e5484d;color:#fff;font:800 11.5px Manrope,sans-serif;letter-spacing:.1em}
-.mm-livepill i,.mm-livebar i{width:8px;height:8px;border-radius:50%;background:#fff;animation:livePulse 1.4s infinite}
-.mm-card.is-live{border:2px solid #e5484d;box-shadow:0 10px 28px rgba(229,72,77,.16);overflow:hidden}
-.mm-livebar{display:flex;align-items:center;gap:8px;margin:-26px -26px 16px;padding:9px 26px;background:linear-gradient(90deg,#e5484d,#f0686c);color:#fff;font:800 12px Manrope,sans-serif;letter-spacing:.06em;text-transform:uppercase}
-.mm-card.is-focus{animation:mmFocus 2.6s ease-out}
-@keyframes mmFocus{0%,60%{box-shadow:0 0 0 4px #ffd34f,0 14px 32px rgba(11,40,80,.25)}100%{box-shadow:0 8px 24px rgba(16,40,78,.06)}}
-.notification-item.tappable{cursor:pointer}
-.notification-item.tappable:focus-visible{outline:2px solid #0b2850;outline-offset:2px}
-.notification-go{display:inline-flex!important;align-items:center;gap:2px;margin-top:7px;color:#0b2850!important;font:800 12px Manrope,sans-serif;font-style:normal}
-.notification-item.tappable:hover .notification-go{text-decoration:underline}
-@media(max-width:760px){.mm-livebar{margin:-18px -18px 14px;padding:9px 18px}}
+.card-docs{display:flex;gap:8px;margin-top:10px;padding-top:12px;border-top:1px solid #edf1f7}.card-docs button{flex:1;justify-content:center;gap:6px;font-size:13px}
+.series-tag{display:block;font-weight:600;font-size:11px;color:#8792a4;margin-top:1px}
+.sheet-grid label .series-tag{display:inline;margin-left:4px}

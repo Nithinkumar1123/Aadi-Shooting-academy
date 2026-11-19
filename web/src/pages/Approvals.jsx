@@ -15,22 +15,12 @@ export default function Approvals({ onChanged }) {
   const [notice, setNotice] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [card, setCard] = useState(null);
-  const [family, setFamily] = useState({});
-  const REL = { self: 'Account holder', child: 'Child', other: 'Family member' };
 
   async function load() {
     const { data, error } = await supabase.from('shooters').select('*')
       .eq('approval_status', tab).not('user_id', 'is', null)
       .order('created_at', { ascending: false });
-    if (error) { setError(error.message); return; }
-    setRows(data || []);
-    // Family accounts: tell the admin when several people share one login/email.
-    const ids = [...new Set((data || []).map(r => r.user_id))];
-    if (!ids.length) { setFamily({}); return; }
-    const { data: all } = await supabase.from('shooters').select('user_id').in('user_id', ids);
-    const counts = {};
-    (all || []).forEach(r => { counts[r.user_id] = (counts[r.user_id] || 0) + 1; });
-    setFamily(counts);
+    if (error) setError(error.message); else setRows(data || []);
   }
   useEffect(() => { load(); }, [tab]);
 
@@ -76,7 +66,7 @@ export default function Approvals({ onChanged }) {
         <table>
           <thead><tr><th>Applicant</th><th>Phone</th><th>Discipline</th><th>Date of birth</th><th>Guardian</th><th>Applied</th><th></th></tr></thead>
           <tbody>{rows.map(s => <tr key={s.id}>
-            <td><div className="person-cell"><span className="person-avatar"><UserCheck size={16} /></span><span><b>{s.full_name}</b><small>{s.email}</small>{(family[s.user_id] > 1 || s.relationship === 'child') && <small className="family-tag">{REL[s.relationship] || 'Member'}{family[s.user_id] > 1 ? ` · family account (${family[s.user_id]} members)` : ''}</small>}</span></div></td>
+            <td><div className="person-cell"><span className="person-avatar"><UserCheck size={16} /></span><span><b>{s.full_name}</b><small>{s.email}</small></span></div></td>
             <td>{s.phone || '—'}</td><td>{s.discipline}</td><td>{s.date_of_birth || '—'}</td>
             <td>{s.guardian_name ? `${s.guardian_name}${s.guardian_phone ? ' · ' + s.guardian_phone : ''}` : '—'}</td>
             <td>{new Date(s.created_at).toLocaleDateString()}</td>

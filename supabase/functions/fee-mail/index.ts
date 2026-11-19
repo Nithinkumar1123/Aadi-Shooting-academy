@@ -49,39 +49,34 @@ function layout(title: string, bodyHtml: string) {
 }
 const row = (k: string, v: string) => `<tr><td style="padding:6px 0;color:#7e899a">${esc(k)}</td><td style="padding:6px 0;text-align:right;font-weight:700">${esc(v)}</td></tr>`;
 
-// `shared` = this login holds several family members, so the message must say WHICH member it is about.
-const firstName = (n: string) => String(n ?? '').trim().split(/\s+/)[0] || 'your family member';
-
-function reminderEmail(f: any, name: string, today: string, shared = false) {
+function reminderEmail(f: any, name: string, today: string) {
   const diff = daysBetween(today, f.due_date);
   const when = diff < 0 ? `was due ${-diff} day${diff === -1 ? '' : 's'} ago` : diff === 0 ? 'is due today' : `is due in ${diff} day${diff === 1 ? '' : 's'}`;
-  const base = diff < 0 ? `Fee overdue: ${f.title} (${inr(f.amount)})` : `Fee reminder: ${f.title} (${inr(f.amount)})`;
-  const subject = shared ? `${firstName(name)} – ${base}` : base;
+  const subject = diff < 0 ? `Fee overdue: ${f.title} (${inr(f.amount)})` : `Fee reminder: ${f.title} (${inr(f.amount)})`;
   const html = layout('Fee payment reminder', `
-    <p>${shared ? 'Hello,' : `Hi ${esc(name)},`}</p>
-    <p>This is a friendly reminder that ${shared ? `the fee <b>${esc(f.title)}</b> for <b>${esc(name)}</b>` : `your fee <b>${esc(f.title)}</b>`} ${when}.</p>
+    <p>Hi ${esc(name)},</p>
+    <p>This is a friendly reminder that your fee <b>${esc(f.title)}</b> ${when}.</p>
     <table style="width:100%;border-collapse:collapse;border-top:1px solid #eef1f5;border-bottom:1px solid #eef1f5;margin:14px 0">
       ${row('Amount', inr(f.amount))}${row('Due date', fmtDate(f.due_date))}
     </table>
     <p>${esc(PAYMENT_HELP)}</p>
     <p style="color:#7e899a;font-size:13px">Already paid? Please ignore this email — it can take a little time for us to record it.</p>`);
-  const text = `${shared ? 'Hello,' : `Hi ${name},`}\n\nReminder: ${shared ? `the fee "${f.title}" for ${name}` : `your fee "${f.title}"`} ${when}.\nAmount: ${inr(f.amount)}\nDue date: ${fmtDate(f.due_date)}\n\n${PAYMENT_HELP}\n\n${ACADEMY}`;
+  const text = `Hi ${name},\n\nReminder: your fee "${f.title}" ${when}.\nAmount: ${inr(f.amount)}\nDue date: ${fmtDate(f.due_date)}\n\n${PAYMENT_HELP}\n\n${ACADEMY}`;
   return { subject, html, text };
 }
 
-function receiptEmail(f: any, name: string, shared = false) {
+function receiptEmail(f: any, name: string) {
   const paidOn = new Date(f.paid_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
-  const baseSubject = `Payment received: ${f.title} (${inr(f.amount)})`;
-  const subject = shared ? `${firstName(name)} – ${baseSubject}` : baseSubject;
+  const subject = `Payment received: ${f.title} (${inr(f.amount)})`;
   const html = layout('Payment received — thank you!', `
-    <p>${shared ? 'Hello,' : `Hi ${esc(name)},`}</p>
-    <p>We have received your payment for <b>${esc(f.title)}</b>${shared ? ` for <b>${esc(name)}</b>` : ''}.</p>
+    <p>Hi ${esc(name)},</p>
+    <p>We have received your payment for <b>${esc(f.title)}</b>.</p>
     <table style="width:100%;border-collapse:collapse;border-top:1px solid #eef1f5;border-bottom:1px solid #eef1f5;margin:14px 0">
       ${row('Amount paid', inr(f.amount))}${row('Paid on', paidOn)}${row('Method', METHOD[f.payment_method] ?? '—')}
       ${f.payment_reference ? row('Reference', f.payment_reference) : ''}${row('Receipt no.', f.id.slice(0, 8).toUpperCase())}
     </table>
     <p>Keep this email as your receipt. See you at the range!</p>`);
-  const text = `${shared ? 'Hello,' : `Hi ${name},`}\n\nWe have received your payment for "${f.title}"${shared ? ` for ${name}` : ''}.\nAmount: ${inr(f.amount)}\nPaid on: ${paidOn}\nMethod: ${METHOD[f.payment_method] ?? '-'}\n${f.payment_reference ? 'Reference: ' + f.payment_reference + '\n' : ''}Receipt no.: ${f.id.slice(0, 8).toUpperCase()}\n\nThank you,\n${ACADEMY}`;
+  const text = `Hi ${name},\n\nWe have received your payment for "${f.title}".\nAmount: ${inr(f.amount)}\nPaid on: ${paidOn}\nMethod: ${METHOD[f.payment_method] ?? '-'}\n${f.payment_reference ? 'Reference: ' + f.payment_reference + '\n' : ''}Receipt no.: ${f.id.slice(0, 8).toUpperCase()}\n\nThank you,\n${ACADEMY}`;
   return { subject, html, text };
 }
 
@@ -105,13 +100,7 @@ async function processFee(fee: any, kind: 'reminder' | 'receipt', trigger: 'manu
     if (kind === 'receipt' && fee.status !== 'paid') throw new Error('Fee is not marked as paid');
     if (!shooter?.email) throw new Error('Shooter has no email address on file');
     if (!env('RESEND_API_KEY') || !env('MAIL_FROM')) throw new Error('Email is not configured (RESEND_API_KEY / MAIL_FROM missing)');
-    // Several members on one login share this inbox: name the member in the subject and body.
-    let shared = false;
-    if (shooter.user_id) {
-      const { count } = await admin.from('shooters').select('id', { count: 'exact', head: true }).eq('user_id', shooter.user_id);
-      shared = (count ?? 0) > 1;
-    }
-    const mail = kind === 'reminder' ? reminderEmail(fee, shooter.full_name, todayIST(), shared) : receiptEmail(fee, shooter.full_name, shared);
+    const mail = kind === 'reminder' ? reminderEmail(fee, shooter.full_name, todayIST()) : receiptEmail(fee, shooter.full_name);
     await sendMail(shooter.email, mail);
     await log('sent');
     if (kind === 'reminder') {
@@ -125,7 +114,7 @@ async function processFee(fee: any, kind: 'reminder' | 'receipt', trigger: 'manu
   }
 }
 
-const FEE_SELECT = '*, shooters(full_name, email, user_id)';
+const FEE_SELECT = '*, shooters(full_name, email)';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });

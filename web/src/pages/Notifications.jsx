@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Trophy, Bell, CheckCircle2, CreditCard, RefreshCw, Target, UserCheck, UserMinus, Wallet, CheckCheck, ChevronRight } from 'lucide-react';
+import { AlertCircle, Trophy, Bell, CheckCircle2, CreditCard, RefreshCw, Target, UserCheck, UserMinus, Wallet, CheckCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { notificationTarget } from '../lib/notificationRoutes';
 
 
 const ICONS = {
@@ -25,8 +23,7 @@ const ICONS = {
   match_lane_assigned: Target,
 };
 
-export default function Notifications({ compact = false, shooterId = null, onUnreadChange = null, onOpen = null }) {
-  const navigate = useNavigate();
+export default function Notifications({ compact = false, shooterId = null, onUnreadChange = null }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -67,13 +64,6 @@ export default function Notifications({ compact = false, shooterId = null, onUnr
     setItems((old) => old.map((x) => x.id === id ? { ...x, read_at: new Date().toISOString() } : x));
     setUnread((n) => { const next = Math.max(0, n - 1); onUnreadChange?.(next); return next; });
   }
-  // Tap a notification: mark it read and jump to the screen it is about.
-  function openItem(x) {
-    if (!x.read_at) markRead(x.id);
-    const t = notificationTarget(x, shooterId ? 'shooter' : 'admin');
-    if (!t) return;
-    if (shooterId) onOpen?.(t); else navigate(t.path);
-  }
   async function markAllRead() {
     if (!unread) return;
     // Mark EVERY unread notification for this user, not just the few shown on screen
@@ -93,12 +83,7 @@ export default function Notifications({ compact = false, shooterId = null, onUnr
     {error && <div className="alert error">{error}</div>}
     <section className="panel notification-panel">
       {compact && <div className="panel-heading"><div><h2>Notifications</h2><p className="muted">Latest academy updates</p></div><div className="notification-heading-actions"><span className={`notification-unread-count ${unread ? 'has-unread' : ''}`}>{unread} unread</span>{unread > 0 && <button className="secondary small" onClick={markAllRead}><CheckCheck size={14}/> Mark all read</button>}</div></div>}
-      {loading ? <div className="empty-inline"><Bell/><p>Loading notifications…</p></div> : items.length === 0 ? <div className="empty-inline"><CheckCircle2/><p>You’re all caught up</p><span>New academy activity will appear here automatically.</span></div> : <div className="notification-list">{items.map((x) => { const Icon = ICONS[x.type] || Bell; const t = notificationTarget(x, shooterId ? 'shooter' : 'admin'); return <article className={`notification-item ${x.read_at ? 'read' : 'unread'} ${t ? 'tappable' : ''}`} key={x.id}
-          role={t ? 'button' : undefined} tabIndex={t ? 0 : undefined} aria-label={t ? `${x.title}. ${t.label}` : undefined}
-          onClick={() => openItem(x)} onKeyDown={(e) => { if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openItem(x); } }}>
-          <span className={`notification-icon ${x.type?.includes('overdue') ? 'reminder' : x.type?.includes('registration') || x.type?.includes('approval') ? 'action' : ''}`}><Icon size={18}/></span>
-          <div className="notification-copy"><b>{x.title}</b><span>{x.message}</span><small>{new Date(x.created_at).toLocaleString('en-IN')}</small>{t && <em className="notification-go">{t.label} <ChevronRight size={14}/></em>}</div>
-          {!x.read_at && <span className="badge amber">New</span>}</article>; })}</div>}
+      {loading ? <div className="empty-inline"><Bell/><p>Loading notifications…</p></div> : items.length === 0 ? <div className="empty-inline"><CheckCircle2/><p>You’re all caught up</p><span>New academy activity will appear here automatically.</span></div> : <div className="notification-list">{items.map((x) => { const Icon = ICONS[x.type] || Bell; return <article className={`notification-item ${x.read_at ? 'read' : 'unread'}`} key={x.id} onClick={() => !x.read_at && markRead(x.id)}><span className={`notification-icon ${x.type?.includes('overdue') ? 'reminder' : x.type?.includes('registration') || x.type?.includes('approval') ? 'action' : ''}`}><Icon size={18}/></span><div className="notification-copy"><b>{x.title}</b><span>{x.message}</span><small>{new Date(x.created_at).toLocaleString('en-IN')}</small></div>{!x.read_at && <span className="badge amber">New</span>}</article>; })}</div>}
     </section>
     {!compact && <div className="notification-note"><AlertCircle size={17}/><span>Browser notifications can be enabled when prompted. Email fee reminders continue through the existing fee-mail automation.</span></div>}
   </>;

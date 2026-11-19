@@ -45,28 +45,6 @@ async function deliver(subs: any[], payload: string) {
   return { sent, removed: dead.length };
 }
 
-// Where tapping the notification should land. Mirrors web/src/lib/notificationRoutes.js.
-const SHOOTER_TAB: Record<string, string> = {
-  score_published: 'scores', fee_added: 'fees', fee_paid: 'fees', fee_overdue: 'fees', fee_reminder: 'fees',
-  match_announced: 'matches', match_registration: 'matches', match_positions_open: 'matches',
-  match_results_published: 'matches', match_lane_assigned: 'matches',
-  approval_approved: 'overview', approval_rejected: 'overview', exit_approved: 'overview', exit_rejected: 'overview', membership_restored: 'overview',
-};
-const ADMIN_PATH: Record<string, string> = {
-  new_registration: '/approvals', registration_resubmitted: '/approvals', shooter_exit_request: '/shooters',
-  fee_added: '/payments', fee_paid: '/payments', fee_overdue: '/payments', fee_reminder: '/payments',
-  score_published: '/scores', match_registration: '/matches',
-};
-function deepLink(n: any): string {
-  if (n.audience === 'admin') return ADMIN_PATH[n.type] ?? '/notifications';
-  const tab = SHOOTER_TAB[n.type];
-  if (!tab) return '/';
-  const q = new URLSearchParams({ tab });
-  if (n.data?.match_id) q.set('match', String(n.data.match_id));
-  if (n.shooter_id) q.set('member', String(n.shooter_id)); // family logins: open the right child
-  return `/?${q.toString()}`;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
@@ -97,26 +75,20 @@ Deno.serve(async (req) => {
 
   // Who should get it?
   let userIds: string[] = [];
-  let forWho = ''; // first name of the family member an alert is about (empty for single-member logins)
   if (n.audience === 'admin') {
     const { data } = await admin.from('profiles').select('id').in('role', ADMIN_ROLES);
     userIds = (data ?? []).map((r: any) => r.id);
   } else if (n.audience === 'shooter' && n.shooter_id) {
-    const { data } = await admin.from('shooters').select('user_id, full_name').eq('id', n.shooter_id).maybeSingle();
-    if (data?.user_id) {
-      userIds = [data.user_id];
-      // Family login: several members share these phones, so say who the alert is for.
-      const { count } = await admin.from('shooters').select('id', { count: 'exact', head: true }).eq('user_id', data.user_id);
-      if ((count ?? 0) > 1) forWho = String(data.full_name ?? '').trim().split(/\s+/)[0] || '';
-    }
+    const { data } = await admin.from('shooters').select('user_id').eq('id', n.shooter_id).maybeSingle();
+    if (data?.user_id) userIds = [data.user_id];
   }
   if (!userIds.length) return json({ sent: 0 });
 
   const { data: subs } = await admin.from('push_subscriptions').select('id,endpoint,p256dh,auth').in('user_id', userIds);
   return json(await deliver(subs ?? [], JSON.stringify({
-    title: forWho ? `${forWho}: ${n.title}` : n.title,
+    title: n.title,
     body: n.message,
     tag: `aadi-${n.type ?? 'note'}-${n.id}`,
-    url: deepLink(n),
+    url: n.audience === 'admin' ? '/notifications' : '/',
   })));
 });
