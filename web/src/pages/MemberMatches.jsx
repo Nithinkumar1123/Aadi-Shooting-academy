@@ -1,15 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
-import { CalendarDays, CheckCircle2, ChevronDown, EyeOff, Lock, MapPin, Medal, Target, Trophy, Users } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CalendarDays, CheckCircle2, ChevronDown, Clock3, Eye, EyeOff, Info, Lock, MapPin, Medal, Search, Target, Trophy, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { fmtDay } from '../lib/format';
 
 const STATUS = { open: ['Registration open', 'live'], closed: ['Registration closed', 'late'], live: ['Match live', 'live'], completed: ['Completed', 'ok'] };
 const fmt = (n) => (Math.round(Number(n) * 10) / 10).toFixed(1);
+// "12 registered" while a match is upcoming; "9 competed" once it is finished; never a misleading "0 registered".
+function participantText(m, registered, res) {
+  if (m.status === 'completed') {
+    const n = res?.scored ?? res?.rows?.length ?? 0;
+    if (n > 0) return `${n} competed`;
+    return registered > 0 ? `${registered} registered` : 'No participants recorded';
+  }
+  return registered === 0 ? 'No registrations yet' : `${registered} registered`;
+}
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
 
 // Shooter's Matches tab. Shows every match, lets the shooter register / withdraw, and – only when the
 // admin has allowed it for that match – shows THEIR OWN position, refreshed live as scores change.
-export default function MemberMatches({ shooter }) {
+export default function MemberMatches({ shooter, focusMatchId = null, onFocused = null }) {
   const [matches, setMatches] = useState([]);
   const [regIds, setRegIds] = useState(new Set());
   const [counts, setCounts] = useState({});
@@ -21,6 +30,30 @@ export default function MemberMatches({ shooter }) {
   const [results, setResults] = useState({}); // matchId -> full results rows (only when published after completion)
   const [openResults, setOpenResults] = useState(() => new Set());
   const [openSheet, setOpenSheet] = useState({}); // matchId -> sheet index whose shots are shown
+  const [search, setSearch] = useState({}); // matchId -> text typed in "find a shooter"
+  const [matchQuery, setMatchQuery] = useState('');
+  const [matchFilter, setMatchFilter] = useState('all');
+  const [visibleMatchLimit, setVisibleMatchLimit] = useState(6);
+  const [collapsedMatches, setCollapsedMatches] = useState(() => new Set());
+  useEffect(() => { setVisibleMatchLimit(6); }, [matchQuery, matchFilter]);
+
+  const matchGroups = useMemo(() => {
+    const q = matchQuery.trim().toLowerCase();
+    const filtered = matches.filter((m) => {
+      const registered = regIds.has(m.id);
+      const matchesQuery = !q || [m.name, m.discipline, m.venue, m.description].filter(Boolean).some((v) => String(v).toLowerCase().includes(q));
+      const matchesFilter = matchFilter === 'all' ||
+        (matchFilter === 'registered' && registered && m.status !== 'completed') ||
+        (matchFilter === 'upcoming' && m.status !== 'completed') ||
+        (matchFilter === 'completed' && m.status === 'completed');
+      return matchesQuery && matchesFilter;
+    });
+    const upcoming = filtered.filter((m) => m.status !== 'completed').sort((a, b) => String(a.match_date).localeCompare(String(b.match_date)));
+    const past = filtered.filter((m) => m.status === 'completed').sort((a, b) => String(b.match_date).localeCompare(String(a.match_date)));
+    if (matchFilter === 'completed') return [['Completed matches', past]];
+    if (matchFilter === 'upcoming' || matchFilter === 'registered') return [['Upcoming matches', upcoming]];
+    return [['Upcoming & live', upcoming], ['Past matches', past]];
+  }, [matches, regIds, matchQuery, matchFilter]);
 
   const loadPositions = useCallback(async (list, regs) => {
     const targets = list.filter((m) => regs.has(m.id));
@@ -47,10 +80,10 @@ export default function MemberMatches({ shooter }) {
     const list = m.data || [], regs = new Set((r.data || []).map((x) => x.match_id));
     setMatches(list); setRegIds(regs);
     const c = {};
-    await Promise.all(list.filter((x) => x.status !== 'completed' || regs.has(x.id)).map(async (x) => { c[x.id] = (await supabase.rpc('match_registration_count', { p_match_id: x.id })).data || 0; }));
+    await Promise.all(list.map(async (x) => { c[x.id] = (await supabase.rpc('match_registration_count', { p_match_id: x.id })).data || 0; }));
     setCounts(c);
     await loadPositions(list, regs);
-    const pub = list.filter((x) => regs.has(x.id) && x.status === 'completed' && x.results_published);
+    const pub = list.filter((x) => x.status === 'completed' && x.results_published);
     const full = await Promise.all(pub.map(async (x) => [x.id, (await supabase.rpc('match_full_results', { p_match_id: x.id })).data]));
     setResults(Object.fromEntries(full.filter(([, d]) => d?.available).map(([id, d]) => [id, d])));
     setLoading(false);
@@ -74,28 +107,46 @@ export default function MemberMatches({ shooter }) {
     if (error) setError(error.message); else load();
   }
 
+  // A tapped notification points at one match: bring it into view once the list has loaded.
+  useEffect(() => {
+    if (loading || !focusMatchId) return;
+    const el = document.getElementById(`match-${focusMatchId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const t = window.setTimeout(() => onFocused?.(), 3000);
+    return () => window.clearTimeout(t);
+  }, [loading, focusMatchId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (loading) return <section className="sp-panel"><p className="sp-sub">Loading matches…</p></section>;
 
   return <>
     <section className="sp-panel">
-      <h2>Matches</h2>
-      <p className="sp-sub">Register for academy matches. Your sheet-wise scores appear here live as they are entered. Your position shows when the academy allows it, and everyone’s results are shared after the match is completed and published.</p>
+      <div className="mm-title-row"><div><h2>Matches</h2><p className="sp-sub">Find competitions, manage registrations and follow your scores.</p></div><span className="mm-total">{matches.length} total</span></div>
+      <label className="mm-match-search"><Search size={17}/><input type="search" value={matchQuery} onChange={(e) => setMatchQuery(e.target.value)} placeholder="Search matches by name, discipline or venue" aria-label="Search matches" />{matchQuery && <button type="button" onClick={() => setMatchQuery('')} aria-label="Clear search">×</button>}</label>
+      <div className="mm-filter-row" role="group" aria-label="Filter matches">{[['all','All matches'],['upcoming','Upcoming'],['registered','My registrations'],['completed','Completed']].map(([id,label]) => <button type="button" key={id} className={matchFilter===id?'active':''} onClick={() => setMatchFilter(id)}>{label}{id==='registered' ? <span>{matches.filter(m=>regIds.has(m.id)&&m.status!=='completed').length}</span> : null}</button>)}</div>
       {error && <p className="sp-error">{error}</p>}
     </section>
 
     {matches.length === 0 ? <section className="sp-panel"><div className="sp-empty"><span className="sp-ico"><Trophy /></span><p>No matches yet. When the academy organises one, you’ll be notified and can register here.</p></div></section> :
-      matches.map((m) => {
+      <>{matchGroups.map(([title, list]) => list.length > 0 && <div className="mm-group" key={title}><h3 className="mm-group-title">{title}<span>{list.length}</span></h3>{list.slice(0, visibleMatchLimit).map((m) => {
         const registered = regIds.has(m.id), pos = positions[m.id], [label, tone] = STATUS[m.status] || STATUS.open;
-        return <section className="sp-panel mm-card" key={m.id}>
+        return <section className={`sp-panel mm-card${focusMatchId === m.id ? ' mm-focus' : ''}`} id={`match-${m.id}`} key={m.id}>
           <div className="mm-head">
-            <div><span className={`sp-badge ${tone}`}>{label}</span><h2>{m.name}</h2></div>
-            {registered && <span className="mm-registered"><CheckCircle2 size={15} /> Registered</span>}
+            <div className="mm-heading-main"><span className={`sp-badge ${tone}`}>{label}</span><h2>{m.name}</h2></div>
+            <div className="mm-head-actions">
+              {registered
+                ? <span className="mm-registered"><CheckCircle2 size={15} /> {m.status === 'completed' ? 'You took part' : 'Registered'}</span>
+                : m.status === 'completed' ? <span className="mm-pill muted"><Eye size={14} /> Did not take part</span> : null}
+              <button type="button" className="mm-collapse-btn" aria-expanded={!collapsedMatches.has(m.id)} aria-controls={`match-details-${m.id}`} onClick={() => setCollapsedMatches((old) => { const next = new Set(old); next.has(m.id) ? next.delete(m.id) : next.add(m.id); return next; })}>
+                {collapsedMatches.has(m.id) ? <><Eye size={15}/> Show details</> : <><EyeOff size={15}/> Hide details</>}
+              </button>
+            </div>
           </div>
+          {collapsedMatches.has(m.id) ? <div className="mm-collapsed-summary"><span><CalendarDays size={14}/> {fmtDay(m.match_date)}</span><span><Target size={14}/> {m.discipline}</span>{registered && pos?.score !== null && pos?.score !== undefined && <strong>Your score: {fmt(pos.score)}</strong>}</div> : <div id={`match-details-${m.id}`} className="mm-expanded-details">
           <div className="mm-meta">
             <span><CalendarDays size={15} /> {fmtDay(m.match_date)}</span>
             <span><Target size={15} /> {m.discipline} · {m.sheets} sheets × {m.shots_per_sheet} shots{m.sighting_sheets > 0 ? ` + ${m.sighting_sheets} sighting (not scored)` : ''}</span>
             {m.venue && <span><MapPin size={15} /> {m.venue}</span>}
-            <span><Users size={15} /> {counts[m.id] ?? 0} registered</span>
+            <span><Users size={15} /> {participantText(m, counts[m.id] ?? 0, results[m.id])}</span>
             <span className="mm-format">{m.format === 'team' ? `Team match · ${m.team_size} per team` : 'Single-player match'}</span>
           </div>
           {m.description && <p className="sp-sub" style={{ marginTop: 10 }}>{m.description}</p>}
@@ -135,10 +186,18 @@ export default function MemberMatches({ shooter }) {
 
           {results[m.id] && (() => {
             const rows = results[m.id].rows, teamRows = results[m.id].teams || [], me = rows.find((r) => r.is_me), top = rows.filter((r) => r.rank <= 3).slice(0, 3);
+            if (rows.length === 0) return <div className="mm-results">
+              <div className="mm-final-head"><Trophy size={16} /><b>Final results</b></div>
+              <p className="mm-empty-results">The academy has published this match, but no scores were recorded for it.</p>
+            </div>;
+            const tookPart = results[m.id].took_part;
+            const q = (search[m.id] || '').trim().toLowerCase();
+            const shown = rows.map((r, i) => ({ ...r, _i: i })).filter((r) => !q || r.name.toLowerCase().includes(q));
             const order = top.length === 3 ? [top[1], top[0], top[2]] : top; // 2nd · 1st · 3rd
             const open = openResults.has(m.id);
             return <div className="mm-results">
-              <div className="mm-final-head"><Trophy size={16} /><b>Final results</b><span>{rows.length} shooters</span></div>
+              <div className="mm-final-head"><Trophy size={16} /><b>Final results</b><span>{rows.length} shooter{rows.length === 1 ? '' : 's'}{teamRows.length > 0 ? ` · ${teamRows.length} team${teamRows.length === 1 ? '' : 's'}` : ''}</span></div>
+              {!tookPart && <div className="mm-info"><Info size={17} /><span><b>You didn’t take part in this match.</b> These are the official results shared by the academy, so you can see how everyone finished.</span></div>}
               {me && <div className="mm-me-result"><div><small>YOU FINISHED</small><b>{ordinal(Number(me.rank))}</b></div><div><small>YOUR SCORE</small><b>{fmt(me.score)}</b></div>{me.inner_tens > 0 && <div><small>INNER TENS</small><b>{me.inner_tens}</b></div>}</div>}
               <div className="mm-podium">{order.map((r, i) => <div key={i} className={`mm-pod p${r.rank} ${r.is_me ? 'me' : ''}`}>
                 <span className="mm-medal">{r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : '🥉'}</span>
@@ -146,12 +205,14 @@ export default function MemberMatches({ shooter }) {
               {teamRows.length > 0 && <div className="mm-teams-final"><small>TEAM STANDINGS</small>{teamRows.map((t, i) => <div key={i} className={`mm-team-row ${t.is_mine ? 'me' : ''}`}>
                 <span className={`mm-chip c${Math.min(t.rank, 4)}`}>{t.rank}</span><span className="mm-rl-name"><b>{t.name}</b>{t.is_mine && <em>Your team</em>}<small>{(t.members || []).join(' · ')}</small></span><span className="mm-rl-score">{fmt(t.score)}</span></div>)}</div>}
               <button className="sp-btn ghost" type="button" aria-expanded={open} onClick={() => setOpenResults((o) => { const n = new Set(o); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n; })}>
-                {open ? 'Hide full list' : 'See all positions'} <ChevronDown size={16} className={open ? 'flip' : ''} />
+                {open ? 'Hide full list' : `See all ${rows.length} position${rows.length === 1 ? '' : 's'}`} <ChevronDown size={16} className={open ? 'flip' : ''} />
               </button>
-              {open && <ol className="mm-rank-list">{rows.map((r, i) => { const key = `${m.id}:${i}`, ex = !!openSheet[key]; return <li key={i} className={r.is_me ? 'me' : ''}>
+              {open && rows.length > 8 && <label className="mm-search"><Search size={16} /><input type="search" value={search[m.id] || ''} onChange={(e) => setSearch((o) => ({ ...o, [m.id]: e.target.value }))} placeholder="Find a shooter by name" aria-label="Find a shooter by name" /></label>}
+              {open && shown.length === 0 && <p className="mm-nomatch">No shooter named “{search[m.id]}”.</p>}
+              {open && <ol className="mm-rank-list">{shown.map((r) => { const key = `${m.id}:${r._i}`, ex = !!openSheet[key]; return <li key={r._i} className={r.is_me ? 'me' : ''}>
                 <button type="button" onClick={() => setOpenSheet((o) => ({ ...o, [key]: !o[key] }))} aria-expanded={ex}>
                   <span className={`mm-chip c${Math.min(r.rank, 4)}`}>{r.rank}</span>
-                  <span className="mm-rl-name"><b>{r.name}</b>{r.is_me && <em>You</em>}{r.inner_tens > 0 && <small>{r.inner_tens} inner tens</small>}</span>
+                  <span className="mm-rl-name"><b>{r.name}</b>{r.is_me && <em>You</em>}{r.is_guest && <em className="guest">Guest</em>}{r.inner_tens > 0 && <small>{r.inner_tens} inner tens</small>}</span>
                   <span className="mm-rl-score">{fmt(r.score)}</span><ChevronDown size={15} className={ex ? 'flip' : ''} />
                 </button>
                 {ex && <div className="mm-rl-sheets">{Array.from({ length: m.sheets }, (_, j) => <div key={j}><span>S{j + 1}</span><b>{r.sheet_scores?.[j] !== null && r.sheet_scores?.[j] !== undefined ? fmt(r.sheet_scores[j]) : '—'}</b></div>)}</div>}
@@ -162,9 +223,11 @@ export default function MemberMatches({ shooter }) {
           <div className="mm-actions">
             {!registered && m.status === 'open' && <button className="sp-btn primary" disabled={busyId === m.id} onClick={() => act(m, true)}>{busyId === m.id ? 'Registering…' : 'Register for this match'}</button>}
             {registered && m.status === 'open' && <button className="sp-btn ghost" disabled={busyId === m.id} onClick={() => { if (window.confirm(`Withdraw from ${m.name}?`)) act(m, false); }}>{busyId === m.id ? 'Please wait…' : 'Withdraw'}</button>}
-            {!registered && m.status !== 'open' && <span className="mm-note"><EyeOff size={14} /> Registration is closed for this match.</span>}
+            {!registered && m.status === 'completed' && !results[m.id] && <span className="mm-note"><Clock3 size={14} /> This match is finished. The results will appear here once the academy publishes them.</span>}
+            {!registered && m.status !== 'open' && m.status !== 'completed' && <span className="mm-note"><EyeOff size={14} /> Registration is closed for this match.</span>}
           </div>
+          </div>}
         </section>;
-      })}
+      })}</div>)}{matchGroups.some(([, list]) => list.length > visibleMatchLimit) && <div className="mm-load-more"><span>Showing {Math.min(visibleMatchLimit, matchGroups.reduce((n, [, list]) => n + list.length, 0))} of {matchGroups.reduce((n, [, list]) => n + list.length, 0)} matches</span><button type="button" className="sp-btn ghost" onClick={() => setVisibleMatchLimit((n) => n + 6)}>Show 6 more matches <ChevronDown size={15}/></button></div>}{matchGroups.every(([, list]) => list.length === 0) && <section className="sp-panel"><div className="sp-empty"><span className="sp-ico"><Search /></span><p>No matches found.</p><span>Try another search or choose a different filter.</span><button className="sp-btn ghost" type="button" onClick={() => { setMatchQuery(''); setMatchFilter('all'); }}>Clear filters</button></div></section>}</>}
   </>;
 }

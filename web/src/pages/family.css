@@ -27,6 +27,9 @@
 .fam-person.add .fam-person-name{padding:0}
 .fam-add-ico{display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:#fff3d6;color:var(--f-gold-d);margin-bottom:6px}
 .fam-avatar{display:inline-grid;place-items:center;flex:none;border-radius:50%;color:#fff;font-weight:800;letter-spacing:.02em}
+.fam-avatar{position:relative;overflow:hidden;isolation:isolate}
+.fam-avatar-fallback{position:absolute;inset:0;display:grid;place-items:center}
+.fam-avatar-photo{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;border-radius:50%;z-index:1;background:#fff}
 
 /* Status chips */
 .fam-chip{display:inline-flex;align-items:center;gap:7px;margin-top:2px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700}
@@ -163,8 +166,6 @@
 /* Member header must fit a 360px phone: logo + family switcher + QR + sign out */
 @media (max-width:720px){
   .sp-top .sp-wrap{gap:8px}
-  .sp-logo{padding:5px 9px}
-  .sp-logo img{height:28px}
   .sp-top-actions{gap:6px}
   .sp-top-qr{white-space:nowrap;padding:0 12px;min-height:40px}
   .sp-top-qr span{font-size:13px}
@@ -184,9 +185,24 @@
 /* 360px phones: keep Sign out on screen */
 @media (max-width:380px){
   .sp-top .sp-wrap{gap:6px;padding:0 10px}
-  .sp-logo{padding:4px 7px}.sp-logo img{height:24px}
   .sp-top-actions{gap:5px}
   .sp-top-qr{padding:0 10px}
   .sp-top-qr svg{width:16px;height:16px}
   .sp-signout{width:40px;min-height:40px}
+}
+
+/* Member header on phones: the wide logo + family switcher + QR + sign out must all fit on one row.
+   (Selectors are deliberately specific so they win over the portal theme regardless of load order.) */
+@media (max-width:440px){
+  .sp-top .sp-wrap{gap:8px;padding-left:10px;padding-right:10px}
+  .sp-top .sp-wrap .sp-logo img{height:30px;max-width:130px}
+  .sp-top .sp-top-actions{gap:5px}
+  .sp-top .sp-top-actions .sp-top-qr{padding:0 11px}
+}
+@media (max-width:380px){  /* "My QR" is also a tab, so the header button can be icon-only here */
+  .sp-top .sp-top-actions .sp-top-qr{width:40px;padding:0;justify-content:center}
+  .sp-top .sp-top-actions .sp-top-qr span{display:none}
+}
+@media (max-width:340px){
+  .sp-top .sp-wrap .sp-logo img{height:26px}
 }

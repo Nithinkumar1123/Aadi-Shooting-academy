@@ -89,3 +89,8 @@
 @keyframes au-spin{to{transform:rotate(360deg)}}
 .au-page .au-switch{margin-top:22px}
 @media(prefers-reduced-motion:reduce){.au-page .au-submit:disabled:before{animation-duration:2s}}
+
+/* Password recovery and first-time activation links */
+.au-forgot{margin:10px 0 0;text-align:right}
+.au-forgot button{border:0;background:none;padding:5px 0;color:#7a4b18;font:700 13.5px 'Manrope','DM Sans',sans-serif;cursor:pointer}
+.au-forgot button:hover{text-decoration:underline;color:#4b0d1e}

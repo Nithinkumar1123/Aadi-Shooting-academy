@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Bell, Trophy, CalendarCheck, CheckCircle2, Info, LogOut, QrCode, Target, Wallet, LayoutGrid, UserMinus, Clock3, ShieldCheck, Phone, HeartHandshake, ChevronRight, X } from 'lucide-react';
+import { AlertTriangle, Bell, Trophy, CalendarCheck, CheckCircle2, Info, LogOut, QrCode, Target, Wallet, LayoutGrid, UserMinus, Clock3, ShieldCheck, Phone, HeartHandshake, ChevronRight, X, Camera, UserRound } from 'lucide-react';
 import QRCode from 'qrcode';
 import { supabase } from '../lib/supabase';
 import { attendanceStats, buildInsights, scorePct, sortScores, summarizeScores } from '../lib/insights';
@@ -61,8 +61,16 @@ function QrPass({ shooter, qrImage, qrBusy, onShow, onNew }) {
   </div>;
 }
 
-export default function MemberHome({ shooter, session, onLogout }) {
-  const [tab, setTab] = useState('overview');
+export default function MemberHome({ shooter, session, onLogout, switcher = null, deepLink = null, onDeepLinkUsed = null }) {
+  // The saved QR is kept per MEMBER (not per login) so several family members can share one phone.
+  // `legacyQrKey` is where single-member accounts stored it before family accounts existed.
+  const qrKey = 'aadi_qr_' + shooter.id;
+  const legacyQrKey = 'aadi_qr_' + session.user.id;
+  // Opened from a tapped notification: land on the right tab (and match) for the right family member.
+  const [tab, setTab] = useState(() => deepLink?.tab || 'overview');
+  const [focusMatch, setFocusMatch] = useState(() => deepLink?.match || null);
+  useEffect(() => { if (deepLink) onDeepLinkUsed?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const openTarget = (t) => { if (!t?.tab) return; setTab(t.tab); setFocusMatch(t.matchId || null); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const [attendance, setAttendance] = useState([]);
   const [scores, setScores] = useState([]);
   const [fees, setFees] = useState([]);
@@ -85,6 +93,41 @@ export default function MemberHome({ shooter, session, onLogout }) {
   const [exitBusy, setExitBusy] = useState(false);
   const [exitError, setExitError] = useState('');
   const [expandedScores, setExpandedScores] = useState(() => new Set());
+  const [profilePhoto, setProfilePhoto] = useState(shooter.avatar_url || '');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState('');
+  useEffect(() => { setProfilePhoto(shooter.avatar_url || ''); setPhotoMessage(''); }, [shooter.id, shooter.avatar_url]);
+  async function uploadProfilePhoto(event) {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { setPhotoMessage('Choose a JPG, PNG or WEBP image.'); return; }
+    if (file.size > 5 * 1024 * 1024) { setPhotoMessage('Please choose an image smaller than 5 MB.'); return; }
+    setPhotoBusy(true); setPhotoMessage('');
+    try {
+      // Store each image under the SHOOTER record ID, not the auth-user ID.
+      // Storage RLS verifies that this shooter belongs to the signed-in family account.
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${shooter.id}/profile.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('shooter-avatars').upload(path, file, {
+        upsert: true, contentType: file.type, cacheControl: '3600'
+      });
+      if (uploadError) {
+        if (uploadError.message?.toLowerCase().includes('row-level security')) {
+          throw new Error('Supabase blocked this upload. Please apply migration 025_shooter_avatar_storage_rls.sql in your Supabase SQL Editor, then try again.');
+        }
+        throw uploadError;
+      }
+      const { data } = supabase.storage.from('shooter-avatars').getPublicUrl(path);
+      const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
+      const { error: saveError } = await supabase.rpc('update_my_shooter_photo', { p_avatar_url: data.publicUrl, p_shooter_id: shooter.id });
+      if (saveError) throw saveError;
+      setProfilePhoto(publicUrl);
+      setPhotoMessage('Your profile photo is saved and visible to the academy.');
+    } catch (err) {
+      setPhotoMessage(err.message || 'We could not upload your photo. Check your connection and try again.');
+    }
+    finally { setPhotoBusy(false); }
+  }
 
   useEffect(() => {
     const unlock = () => { unlockNotificationAudio(); };
@@ -196,13 +239,18 @@ export default function MemberHome({ shooter, session, onLogout }) {
   useEffect(() => {
     (async () => {
       try {
-        const token = localStorage.getItem('aadi_qr_' + session.user.id);
+        const token = localStorage.getItem(qrKey) || localStorage.getItem(legacyQrKey);
         if (!token) return;
         const { data } = await supabase.rpc('my_qr_is_valid', { p_token: token });
-        if (data) setQrImage(await QRCode.toDataURL(token, { width: 420, margin: 2, errorCorrectionLevel: 'H' }));
+        // Valid only if it is THIS member's active QR, so a legacy token can never show on the wrong member.
+        if (data) {
+          localStorage.setItem(qrKey, token);
+          localStorage.removeItem(legacyQrKey);
+          setQrImage(await QRCode.toDataURL(token, { width: 420, margin: 2, errorCorrectionLevel: 'H' }));
+        }
       } catch (_) {}
     })();
-  }, [session.user.id]);
+  }, [qrKey, legacyQrKey]);
   useEffect(() => {
     if (!qrModal) return;
     const onKey = (e) => { if (e.key === 'Escape') setQrModal(false); };
@@ -222,8 +270,8 @@ export default function MemberHome({ shooter, session, onLogout }) {
   async function showQr(regenerate = false) {
     setError(''); setQrBusy(true);
     try {
-      const key = 'aadi_qr_' + session.user.id;
-      let token = regenerate ? null : localStorage.getItem(key);
+      const key = qrKey;
+      let token = regenerate ? null : (localStorage.getItem(key) || localStorage.getItem(legacyQrKey));
       if (token) { // the saved QR may have been replaced from another device
         const { data } = await supabase.rpc('my_qr_is_valid', { p_token: token });
         if (!data) token = null;
@@ -257,7 +305,7 @@ export default function MemberHome({ shooter, session, onLogout }) {
   return <div className="sp-page">
     <header className="sp-top"><div className="sp-wrap">
       <div className="sp-brand"><span className="sp-logo"><img src="/aadi-logo.png" alt="AADI Rifle Shooting Academy" /></span></div>
-      <div className="sp-top-actions"><button type="button" className="sp-top-qr" onClick={openQr} aria-label="Show my check-in QR"><QrCode size={18} /><span>My QR</span></button>
+      <div className="sp-top-actions">{switcher}<button type="button" className="sp-top-qr" onClick={openQr} aria-label="Show my check-in QR"><QrCode size={18} /><span>My QR</span></button>
       <button className="sp-signout" onClick={onLogout} title={session.user.email}><LogOut size={15} /><span>Sign out</span></button></div>
     </div></header>
 
@@ -267,8 +315,14 @@ export default function MemberHome({ shooter, session, onLogout }) {
           {qrImage ? <img src={qrImage} alt="" /> : <span className="qr-ph"><QrCode size={40} /></span>}
           <span>My QR</span>
         </button>
-        <p className="sp-hello">Welcome back,</p>
-        <h1 className="sp-name">{shooter.full_name}</h1>
+        <div className="sp-profile-row">
+          <label className="sp-profile-photo" title="Add or change profile photo">
+            {profilePhoto ? <img src={profilePhoto} alt={`${shooter.full_name} profile`} onError={() => setProfilePhoto('')} /> : <span><UserRound size={28}/></span>}
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadProfilePhoto} disabled={photoBusy} aria-label="Upload profile photo" />
+            <i>{photoBusy ? '…' : <Camera size={14}/>}</i>
+          </label>
+          <div className="sp-profile-copy"><p className="sp-hello">Welcome back,</p><h1 className="sp-name">{shooter.full_name}</h1><small>{photoBusy ? 'Uploading photo…' : (photoMessage || 'Profile photo optional · Tap the camera to add or change')}</small></div>
+        </div>
         <div className="sp-card-row">
           <div className="sp-field"><small>Membership ID</small><b className="gold">{shooter.shooter_code}</b></div>
           <div className="sp-field"><small>Discipline</small><b>{shooter.discipline}</b></div>
@@ -385,7 +439,7 @@ export default function MemberHome({ shooter, session, onLogout }) {
             const hasShotDetails = shotValues.length > 0;
             const expanded = expandedScores.has(s.id);
             return <li className="sp-row sp-score-row" key={s.id}>
-              <div className="sp-grow"><b>{s.event_name}</b><span>{fmtDay(s.session_date)} · {s.shots} shots{s.notes ? ` · ${s.notes}` : ''}</span>{hasShotDetails && <div className="sp-shot-summary"><Target size={13}/> Shot-by-shot details available</div>}</div>
+              <div className="sp-grow"><b>{s.event_name} <span className={`badge ${s.match_id ? 'amber' : 'green'}`} style={{ marginLeft: 6 }}>{s.match_id ? 'Match' : 'Practice'}</span></b><span>{fmtDay(s.session_date)} · {s.shots} shots{s.notes ? ` · ${s.notes}` : ''}</span>{hasShotDetails && <div className="sp-shot-summary"><Target size={13}/> Shot-by-shot details available</div>}</div>
               <div className="sp-score"><b>{Number(s.score)}<small> / {Number(s.max_score)}</small></b><div className="sp-bar"><i style={{ width: `${Math.min(100, scorePct(s))}%` }} /></div></div>
               {hasShotDetails && <button type="button" className="sp-btn ghost sp-shot-toggle" onClick={() => setExpandedScores((old) => { const next = new Set(old); if (next.has(s.id)) next.delete(s.id); else next.add(s.id); return next; })}>{expanded ? 'Hide shots' : 'View shots'}</button>}
               {expanded && hasShotDetails && <div className="sp-shot-details"><div className="sp-shot-details-head"><div><b>Shot-by-shot performance</b><span>{shotValues.length} recorded shots · total {Number(s.score)}</span></div><span className="sp-badge live">Published</span></div><div className="sp-shot-grid">{shotValues.map((v, i) => <div className="sp-shot-cell" key={`${s.id}-${i}`}><small>Shot {i + 1}</small><b>{Number(v).toFixed(1)}</b></div>)}</div></div>}
@@ -394,9 +448,9 @@ export default function MemberHome({ shooter, session, onLogout }) {
         </>}
       </section>}
 
-      {tab === 'notifications' && <section className="sp-panel"><Notifications compact shooterId={shooter.id} onUnreadChange={setUnreadNotifications} /></section>}
+      {tab === 'notifications' && <section className="sp-panel"><Notifications compact shooterId={shooter.id} onUnreadChange={setUnreadNotifications} onOpen={openTarget} /></section>}
 
-      {tab === 'matches' && <MemberMatches shooter={shooter} />}
+      {tab === 'matches' && <MemberMatches shooter={shooter} focusMatchId={focusMatch} onFocused={() => setFocusMatch(null)} />}
 
       {tab === 'fees' && <section className="sp-panel">
         <h2>My fees</h2>

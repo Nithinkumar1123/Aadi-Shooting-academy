@@ -253,3 +253,36 @@ How it works: a database trigger writes each change to a queue in the same trans
 ## Professional brand refresh
 
 The web app now uses the supplied AADI maroon-and-gold logo set and a matching brand theme. Logo assets are in `web/public/`; the visual override is `web/src/brand-refresh.css`, imported after the existing styles. Existing React routes, Supabase integration, and features were retained.
+
+## Shooter account activation, password recovery and profile photos (Migrations 024–025)
+
+After deploying this update, ensure migrations 001–024 are applied, then run `supabase/migrations/025_shooter_avatar_storage_rls.sql` in the Supabase SQL Editor. Migration 025 fixes profile-photo Storage permissions for individual and family accounts.
+
+### First-time shooter login
+
+1. In the Admin workspace, open **Shooters → Register shooter** and enter the shooter's email address. The email is required because it is the sign-in identity.
+2. Share that exact email address with the shooter.
+3. On the sign-in page, the shooter chooses **Create account**, enters the same email and creates a password (at least 8 characters).
+4. If email confirmation is enabled in Supabase, they confirm the email from their inbox and then sign in. Their pre-registered shooter profile is automatically linked to the new login. If the email already belongs to an AADI login, the new shooter record is attached to that existing family login.
+
+### Forgot password
+
+The sign-in page now includes **Forgot password?**. In Supabase Dashboard → Authentication → URL Configuration, add your deployed site's `/reset-password` URL to the Redirect URLs allow-list (and the local development URL, for example `http://localhost:5173/reset-password`). Ensure the Supabase email provider is configured to send password recovery emails.
+
+### Optional profile photo
+
+Shooters can select the camera icon on their member profile and upload a JPG, PNG or WEBP image up to 5 MB. The image is optional. Migrations 024–025 create the `shooter-avatars` public image bucket and restrict uploads/changes to the linked shooter profile or an academy admin. Storage paths use the shooter record ID, so family accounts can upload a separate photo for each linked member. The admin Shooters directory displays the uploaded photo beside the member's name.
+
+### Archive and delete
+
+Admins can archive an active approved shooter directly from the Shooters directory. Archiving is blocked while the shooter has an open attendance session; the QR is deactivated and the shooter's history is retained in **Past Shooters**. Admins can restore an archived shooter. Permanent deletion remains a separate, irreversible action available only from Past Shooters and removes linked academy records.
+
+### Important deployment notes
+
+- Apply migration 025 after migration 024, then deploy the updated `web` application.
+- Keep `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` configured as before. Never expose the Supabase service-role key in the frontend.
+- Password recovery emails depend on your Supabase Auth email/SMTP configuration and the Redirect URLs allow-list.
+
+### Profile photo RPC signature fix
+
+If photo saving reports `Could not find the function public.update_my_shooter_photo(p_avatar_url, p_shooter_id) in the schema cache`, run `supabase/migrations/026_fix_shooter_photo_rpc_signature.sql` in Supabase SQL Editor. This recreates the RPC with the named arguments expected by the frontend and reloads the PostgREST schema cache.

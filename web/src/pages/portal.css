@@ -270,3 +270,42 @@
   .sp-sub{font-size:13px}
   .sp-btn{font-size:13px}
 }
+
+/* Matches tab (family release): sections, participation pill, "did not take part" note, empty results */
+.mm-group{display:block}
+.mm-group-title{display:flex;align-items:center;gap:9px;margin:22px 4px 10px;color:#4b0d1e;font:800 15px Manrope,sans-serif;letter-spacing:.01em}
+.mm-group:first-of-type .mm-group-title{margin-top:6px}
+.mm-group-title span{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 7px;border-radius:999px;background:#f3e6e8;color:#5b1024;font-size:12px;font-weight:800}
+.mm-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.mm-pill.muted{background:#f1ebec;color:#7a5d65}
+.mm-info{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:12px;background:#fff8ee;border:1px solid #f0dca6;color:#6b4e10;font-size:13.5px;line-height:1.55}
+.mm-info svg{flex:none;margin-top:2px;color:#a87920}.mm-info b{color:#4b0d1e}
+.mm-nomatch{margin:4px 2px;color:#8b6b73;font-size:13.5px}
+.mm-rl-name em.guest{margin-left:6px;padding:1px 8px;border-radius:999px;background:#f1ebec;color:#7a5d65;font-size:11px;font-style:normal;font-weight:700}
+.mm-empty-results{margin:6px 0 0;padding:14px;border-radius:12px;background:#fff8f2;color:#7a5d65;font-size:14px;line-height:1.55}
+
+/* Optional shooter profile photo */
+.sp-profile-row{display:flex;align-items:center;gap:15px;margin:0 0 12px}
+.sp-profile-photo{position:relative;display:grid;place-items:center;flex:none;width:68px;height:68px;border:2px solid rgba(218,173,75,.8);border-radius:50%;background:#f4edf0;color:#64152b;overflow:hidden;cursor:pointer}
+.sp-profile-photo img{width:100%;height:100%;object-fit:cover}
+.sp-profile-photo>span{display:grid;place-items:center;width:100%;height:100%}
+.sp-profile-photo input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.sp-profile-photo i{position:absolute;right:0;bottom:0;display:grid;place-items:center;width:25px;height:25px;border:2px solid #fff;border-radius:50%;background:#d8a83e;color:#42101e;font-style:normal;pointer-events:none}
+.sp-profile-copy{min-width:0}.sp-profile-copy .sp-hello{margin:0 0 2px}.sp-profile-copy .sp-name{margin:0}.sp-profile-copy small{display:block;margin-top:4px;color:#8b6b73;font-size:11.5px;line-height:1.35}
+
+/* Match discovery controls: designed for large competition histories and small screens. */
+.mm-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mm-title-row h2{margin:0 0 4px}
+.mm-title-row .sp-sub{margin:0}
+.mm-total{flex:none;padding:6px 10px;border-radius:999px;background:#f5edf0;color:#64152b;font-size:12px;font-weight:800}
+.mm-match-search{display:flex;align-items:center;gap:10px;margin-top:16px;padding:0 13px;min-height:46px;border:1px solid #eadde0;border-radius:13px;background:#fff;color:#8b6b73}
+.mm-match-search:focus-within{border-color:#b98a2e;box-shadow:0 0 0 3px rgba(185,138,46,.12)}
+.mm-match-search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:#4b0d1e;font:inherit;font-size:14px}
+.mm-match-search button{border:0;background:transparent;color:#8b6b73;font-size:23px;cursor:pointer}
+.mm-filter-row{display:flex;gap:8px;overflow-x:auto;padding:13px 0 2px;scrollbar-width:thin}
+.mm-filter-row button{display:inline-flex;align-items:center;gap:7px;flex:none;padding:8px 13px;border:1px solid #eadde0;border-radius:999px;background:#fff;color:#795b63;font-size:12.5px;font-weight:750;cursor:pointer}
+.mm-filter-row button.active{border-color:#64152b;background:#64152b;color:#fff}
+.mm-filter-row button span{display:grid;place-items:center;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:rgba(255,255,255,.2);font-size:11px}
+.mm-card{scroll-margin-top:90px}
+@media(max-width:600px){.mm-title-row{align-items:flex-start}.mm-filter-row{margin-right:-4px}.mm-match-search{min-height:44px}.mm-card .mm-head{align-items:flex-start;gap:10px}.mm-card .mm-head h2{font-size:18px}}
+.mm-load-more{display:flex;flex-direction:column;align-items:center;gap:9px;padding:12px 0 24px;color:#8b6b73;font-size:12px}

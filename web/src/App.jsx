@@ -228,15 +228,17 @@ function AuthScreen({ initialMode='signin' }) {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [info, setInfo] = useState('');
   const signup = mode === 'signup';
+  const forgot = mode === 'forgot';
+  const resetting = mode === 'reset';
   const [showPw, setShowPw] = useState(false);
   const [fe, setFe] = useState({});
-  const friendly = m => /invalid login/i.test(m) ? 'Incorrect email or password. Please check and try again.' : /already registered|already been registered/i.test(m) ? 'This email already has an account. Try signing in instead.' : /rate limit|too many/i.test(m) ? 'Too many attempts. Please wait a moment and try again.' : /email not confirmed/i.test(m) ? 'Please confirm your email first, then sign in.' : m;
+  const friendly = m => /invalid login/i.test(m) ? 'Incorrect email or password. Please check and try again.' : /already registered|already been registered/i.test(m) ? 'This email already has an account. Sign in, or use Forgot password if you need to set a new password.' : /rate limit|too many/i.test(m) ? 'Too many attempts. Please wait a moment and try again.' : /email not confirmed/i.test(m) ? 'Please confirm your email first, then sign in.' : m;
   function validate() {
     const x = {};
-    if (!email.trim()) x.email = 'Enter your email address.';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) x.email = 'Enter a valid email, like name@example.com.';
-    if (!password) x.password = signup ? 'Create a password.' : 'Enter your password.';
-    else if (signup && password.length < 6) x.password = 'Use at least 6 characters.';
+    if (!resetting && !email.trim()) x.email = 'Enter your email address.';
+    else if (!resetting && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) x.email = 'Enter a valid email, like name@example.com.';
+    if (!forgot && !password) x.password = (signup || resetting) ? 'Create a password.' : 'Enter your password.';
+    else if ((signup || resetting) && password.length < 8) x.password = 'Use at least 8 characters.';
     return x;
   }
   async function submit(e) {
@@ -244,13 +246,19 @@ function AuthScreen({ initialMode='signin' }) {
     const x = validate(); setFe(x);
     if (x.email || x.password) { document.getElementById(x.email ? 'au-email' : 'au-password')?.focus(); return; }
     setBusy(true);
-    const result = signup ? await supabase.auth.signUp({ email: email.trim(), password }) : await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    let result;
+    if (forgot) result = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/reset-password` });
+    else if (resetting) result = await supabase.auth.updateUser({ password });
+    else if (signup) result = await supabase.auth.signUp({ email: email.trim(), password, options: { emailRedirectTo: `${window.location.origin}/login` } });
+    else result = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (result.error) setError(friendly(result.error.message));
+    else if (forgot) setInfo('If an account exists for this email, a password reset link has been sent. Please check your inbox and spam folder.');
+    else if (resetting) { setInfo('Your password has been updated. You can now continue to your account.'); setTimeout(() => navigate('/'), 900); }
     else if (!signup) navigate('/');
-    else if (signup && !result.data.session) { setInfo('Your account has been created. Please confirm your email, then sign in.'); setMode('signin'); }
+    else if (signup && !result.data.session) { setInfo('Your account is ready. Check your email to confirm it, then sign in. If the academy has already registered you, use the same email address.'); setMode('signin'); }
     setBusy(false);
   }
-  const switchMode = m => { setMode(m); setError(''); setInfo(''); setFe({}); };
+  const switchMode = m => { setMode(m); setError(''); setInfo(''); setFe({}); setPassword(''); };
   return <div className="au-page">
     <aside className="au-side">
       <img className="au-side-img" src="/hero-shooters.jpg" alt="" aria-hidden="true"/>
@@ -278,33 +286,34 @@ function AuthScreen({ initialMode='signin' }) {
       </div>
 
       <div className="au-card">
-        <div className="au-tabs" role="tablist" aria-label="Sign in or create account">
+        {!forgot && !resetting && <div className="au-tabs" role="tablist" aria-label="Sign in or create account">
           <button type="button" role="tab" aria-selected={!signup} className={!signup ? 'active' : ''} onClick={() => switchMode('signin')}>Sign in</button>
           <button type="button" role="tab" aria-selected={signup} className={signup ? 'active' : ''} onClick={() => switchMode('signup')}>Create account</button>
-        </div>
-        <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
-        <p className="au-sub">{signup ? 'One login for the whole family. Next, add yourself and your children. The academy approves each person separately.' : 'Sign in to continue to your member or staff dashboard.'}</p>
+        </div>}
+        <h2>{resetting ? 'Set a new password' : forgot ? 'Reset your password' : signup ? 'Create your account' : 'Welcome back'}</h2>
+        <p className="au-sub">{resetting ? 'Choose a new password for your AADI account.' : forgot ? 'Enter your registered email address. We will send you a secure reset link.' : signup ? 'One login for your family. If the academy has already registered you, use the same email to activate your account.' : 'Sign in to continue to your member or staff dashboard.'}</p>
 
         <form onSubmit={submit} noValidate>
-          <div className="au-field">
+          {!resetting && <div className="au-field">
             <label htmlFor="au-email">Email address</label>
             <div className={`au-input ${fe.email ? 'invalid' : ''}`}><Mail size={19}/><input id="au-email" type="email" inputMode="email" autoComplete="email" value={email} aria-invalid={!!fe.email} aria-describedby={fe.email ? 'au-email-err' : undefined} onChange={e => { setEmail(e.target.value); if (fe.email) setFe({ ...fe, email: '' }); }} placeholder="you@example.com"/></div>
             {fe.email && <p className="au-err" id="au-email-err" role="alert">{fe.email}</p>}
-          </div>
-          <div className="au-field">
-            <label htmlFor="au-password">Password</label>
-            <div className={`au-input ${fe.password ? 'invalid' : ''}`}><Lock size={19}/><input id="au-password" type={showPw ? 'text' : 'password'} autoComplete={signup ? 'new-password' : 'current-password'} value={password} aria-invalid={!!fe.password} aria-describedby={fe.password ? 'au-pw-err' : undefined} onChange={e => { setPassword(e.target.value); if (fe.password) setFe({ ...fe, password: '' }); }} placeholder={signup ? 'At least 6 characters' : 'Enter your password'}/>
+          </div>}
+          {!forgot && <div className="au-field">
+            <label htmlFor="au-password">{resetting ? 'New password' : 'Password'}</label>
+            <div className={`au-input ${fe.password ? 'invalid' : ''}`}><Lock size={19}/><input id="au-password" type={showPw ? 'text' : 'password'} autoComplete={signup || resetting ? 'new-password' : 'current-password'} value={password} aria-invalid={!!fe.password} aria-describedby={fe.password ? 'au-pw-err' : undefined} onChange={e => { setPassword(e.target.value); if (fe.password) setFe({ ...fe, password: '' }); }} placeholder={signup || resetting ? 'At least 8 characters' : 'Enter your password'}/>
               <button type="button" className="au-eye" aria-label={showPw ? 'Hide password' : 'Show password'} onClick={() => setShowPw(!showPw)}>{showPw ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div>
             {fe.password && <p className="au-err" id="au-pw-err" role="alert">{fe.password}</p>}
-          </div>
+          </div>}
           {error && <p className="au-msg error" role="alert">{error}</p>}
           {info && <p className="au-msg ok" role="status">{info}</p>}
-          <button className="au-submit" disabled={busy}>{busy ? 'Please wait…' : signup ? 'Create account' : 'Sign in securely'} {!busy && <ArrowRight size={17}/>}</button>
+          <button className="au-submit" disabled={busy}>{busy ? 'Please wait…' : resetting ? 'Update password' : forgot ? 'Send reset link' : signup ? 'Create account' : 'Sign in securely'} {!busy && <ArrowRight size={17}/>}</button>
         </form>
 
-        <p className="au-switch">{signup ? 'Already registered?' : 'New to AADI?'} <button type="button" onClick={() => switchMode(signup ? 'signin' : 'signup')}>{signup ? 'Sign in' : 'Create a shooter account'}</button></p>
-        {!signup && <p className="au-hint">New accounts need approval from the academy before full access.</p>}
-        {signup && <p className="au-hint">Registering your children too? Use one family email here. You will add each child on the next screen, so no extra emails are needed.</p>}
+        {!resetting && <p className="au-switch">{signup ? 'Already registered?' : forgot ? 'Remembered your password?' : 'New to AADI?'} <button type="button" onClick={() => switchMode(signup || forgot ? 'signin' : 'signup')}>{signup || forgot ? 'Sign in' : 'Create a shooter account'}</button></p>}
+        {!signup && !forgot && !resetting && <p className="au-forgot"><button type="button" onClick={() => switchMode('forgot')}>Forgot password?</button></p>}
+        {!signup && !forgot && !resetting && <p className="au-hint">If the academy registered you, select Create account and use the same email to set your password.</p>}
+        {signup && <p className="au-hint">Registering your children too? Use one family email here. You can add each child after signing in.</p>}
       </div>
 
       <span className="au-copy">© {new Date().getFullYear()} AADI Rifle Shooting Academy</span>
@@ -368,7 +377,8 @@ export default function App() {
   async function logout(){const uid=session?.user?.id;await detachPush();await supabase.auth.signOut();setActiveMember(null);if(uid)clearChosenMember(uid);setSession(null);navigate('/');}
   if(!supabaseConfigured)return <div className="setup-screen"><div className="setup-card"><div className="brand-mark"><Target/></div><p className="eyebrow">INITIAL SETUP</p><h1>Connect your academy portal</h1><p className="muted">Create <code>web/.env</code> from <code>.env.example</code>, add your Supabase project URL and publishable/anon key, then restart the dev server.</p><pre>VITE_SUPABASE_URL=https://…supabase.co<br/>VITE_SUPABASE_ANON_KEY=…</pre><p className="tiny muted">Never put a Supabase service-role key in a browser application.</p></div></div>;
   if(loading)return <div className="loading">Loading AADI Rifle Shooting…</div>;
-  if(!session)return <Routes><Route path="/login" element={<AuthScreen/>}/><Route path="/signup" element={<AuthScreen initialMode="signup"/>}/><Route path="*" element={<LandingPage/>}/></Routes>;
+  if(!session)return <Routes><Route path="/login" element={<AuthScreen/>}/><Route path="/signup" element={<AuthScreen initialMode="signup"/>}/><Route path="/reset-password" element={<AuthScreen initialMode="reset"/>}/><Route path="*" element={<LandingPage/>}/></Routes>;
+  if (window.location.pathname === '/reset-password') return <AuthScreen initialMode="reset"/>;
   if(!access)return <div className="loading">Loading your account…</div>;
   return access==='admin'?<AdminShell session={session} onLogout={logout}/>:<ShooterPortal session={session} onLogout={logout}/>;
 }

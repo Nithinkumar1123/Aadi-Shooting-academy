@@ -4,7 +4,13 @@ import { Check, ChevronDown, LayoutGrid, Plus, Users, X } from 'lucide-react';
 import { MAX_MEMBERS, REL_LABEL, avatarTone, firstName, initials, memberState } from '../lib/family';
 
 export function Avatar({ member, size = 36 }) {
-  return <span className="fam-avatar" style={{ width: size, height: size, background: avatarTone(member.id), fontSize: Math.round(size * 0.38) }} aria-hidden="true">{initials(member.full_name)}</span>;
+  const photo = member?.avatar_url;
+  return <span className="fam-avatar" style={{ width: size, height: size, background: avatarTone(member?.id), fontSize: Math.round(size * 0.38) }} aria-hidden="true">
+    {photo ? <>
+      <span className="fam-avatar-fallback">{initials(member?.full_name)}</span>
+      <img className="fam-avatar-photo" src={photo} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+    </> : initials(member?.full_name)}
+  </span>;
 }
 
 // Phones get a bottom sheet (easy to reach, never clipped); larger screens get a small dropdown.
